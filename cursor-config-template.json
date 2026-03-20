@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "discord-mcp": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "discord_mcp.server", "--mode", "stdio"],
+      "cwd": "D:/Dev/repos/discord-mcp",
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "DISCORD_TOKEN": ""
+      }
+    }
+  }
+}
