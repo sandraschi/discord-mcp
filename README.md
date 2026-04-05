@@ -2,11 +2,11 @@
 
 **Repository:** [github.com/sandraschi/discord-mcp](https://github.com/sandraschi/discord-mcp)
 
-FastMCP **3.1** Discord MCP server with **sampling** (server-side Ollama / OpenAI-compatible or client LLM), **agentic workflow** (`discord_agentic_workflow`), **skills** (`SkillsDirectoryProvider` + `skill://…/SKILL.md`), **prompts**, and a **2026 fleet-style** dashboard (React + Vite + Tailwind, dark glass shell).
+FastMCP **3.1** Discord MCP server with **sampling** (server-side Ollama / OpenAI-compatible or client LLM), **agentic workflow** (`discord_agentic_workflow`), **skills** (`SkillsDirectoryProvider` + `skill:///SKILL.md`), **prompts**, and a **2026 fleet-style** dashboard (React + Vite + Tailwind, dark glass shell).
 
 ## Ports
 
-- **Backend**: 10756 — REST (`/api/v1/…`) + MCP **streamable HTTP** at **`/mcp`**
+- **Backend**: 10756  REST (`/api/v1/`) + MCP **streamable HTTP** at **`/mcp`**
 - **Frontend**: 10757
 
 ## Setup
@@ -24,7 +24,7 @@ FastMCP **3.1** Discord MCP server with **sampling** (server-side Ollama / OpenA
 
 ## Cursor MCP
 
-- **This repo as workspace root:** `.cursor/mcp.json` registers **discord-mcp** (stdio). Set **`DISCORD_TOKEN`** in that file’s `env` or rely on your shell environment. Reload MCP / restart Cursor after edits.
+- **This repo as workspace root:** `.cursor/mcp.json` registers **discord-mcp** (stdio). Set **`DISCORD_TOKEN`** in that files `env` or rely on your shell environment. Reload MCP / restart Cursor after edits.
 - **Global / multi-root merge:** copy the **`discord-mcp`** block from **`cursor-config-template.json`** into your user MCP JSON (Windows: `%USERPROFILE%\.cursor\mcp.json`). Adjust **`cwd`** to your clone path if you are not using the default `D:/Dev/repos/discord-mcp`.
 
 ## MCP HTTP (remote / Inspector)
@@ -35,9 +35,9 @@ FastMCP **3.1** Discord MCP server with **sampling** (server-side Ollama / OpenA
 
 ## Tools
 
-- **discord(operation=…)** — Portmanteau: `list_guilds`, `list_channels`, `send_message`, `get_messages`, `get_guild_stats`, `create_channel`, `create_guild`, `create_invite`, `list_invites`, `revoke_invite`, `list_members`, `get_member`, `list_active_threads`, `rag_ingest`, `rag_query`. `create_guild` requires user OAuth2 (bot 403). `list_members` / `get_member` require GUILD_MEMBERS intent.
-- **discord_help(category=…, topic=…)** — Multi-level help.
-- **discord_agentic_workflow(goal, ctx)** — High-level goal via `ctx.sample` + tools (SEP-1577). Returns a structured **dict** (`success`, `message`, `recommendations` or error fields).
+- **discord(operation=)**  Portmanteau: `list_guilds`, `list_channels`, `send_message`, `get_messages`, `get_guild_stats`, `create_channel`, `create_guild`, `create_invite`, `list_invites`, `revoke_invite`, `list_members`, `get_member`, `list_active_threads`, `rag_ingest`, `rag_query`. `create_guild` requires user OAuth2 (bot 403). `list_members` / `get_member` require GUILD_MEMBERS intent.
+- **discord_help(category=, topic=)**  Multi-level help.
+- **discord_agentic_workflow(goal, ctx)**  High-level goal via `ctx.sample` + tools (SEP-1577). Returns a structured **dict** (`success`, `message`, `recommendations` or error fields).
 
 ## Prompts (registered)
 
@@ -45,24 +45,24 @@ FastMCP **3.1** Discord MCP server with **sampling** (server-side Ollama / OpenA
 
 ## Skills
 
-Bundled under `src/discord_mcp/skills/<name>/SKILL.md`, exposed as MCP resources (`skill://…`). Listed in the dashboard under **Skills** and via `GET /api/v1/skills`.
+Bundled under `src/discord_mcp/skills/<name>/SKILL.md`, exposed as MCP resources (`skill://`). Listed in the dashboard under **Skills** and via `GET /api/v1/skills`.
 
 ## Resources
 
-- `resource://discord-mcp/capabilities` — Short capability summary for clients.
+- `resource://discord-mcp/capabilities`  Short capability summary for clients.
 
 ## API (REST)
 
-- `GET /api/v1/health` — Health, token_set, rate limits, sampling, `mcp_http_path`
-- `GET /api/v1/meta` — Tools, prompts, resources, skills root, sampling
-- `GET /api/v1/skills` — Bundled skill previews (dashboard)
-- `GET /api/v1/guilds` — List guilds (proxy to tool)
-- `GET /api/v1/guilds/{guild_id}/channels` — List channels
+- `GET /api/v1/health`  Health, token_set, rate limits, sampling, `mcp_http_path`
+- `GET /api/v1/meta`  Tools, prompts, resources, skills root, sampling
+- `GET /api/v1/skills`  Bundled skill previews (dashboard)
+- `GET /api/v1/guilds`  List guilds (proxy to tool)
+- `GET /api/v1/guilds/{guild_id}/channels`  List channels
 - (See OpenAPI at `/docs` for full list.)
 
 ## Discord HTTP 429 (API rate limits)
 
-Discord enforces **per-route** limits on the REST API. On **HTTP 429**, the server now **waits** for `retry_after` (from the response body or `Retry-After` header) and **retries** the same request up to **5** times before returning an error. If you still see 429 after that, slow down (e.g. fewer parallel message fetches, smaller RAG ingest batches) or wait a minute—especially if `"global": true` appears in Discord’s response (rare; indicates a broader limit).
+Discord enforces **per-route** limits on the REST API. On **HTTP 429**, the server now **waits** for `retry_after` (from the response body or `Retry-After` header) and **retries** the same request up to **5** times before returning an error. If you still see 429 after that, slow down (e.g. fewer parallel message fetches, smaller RAG ingest batches) or wait a minuteespecially if `"global": true` appears in Discords response (rare; indicates a broader limit).
 
 ## Safety and rate limits (anti-spam)
 
@@ -77,9 +77,9 @@ Env: `DISCORD_RATE_LIMIT_MESSAGES_PER_MINUTE`, `DISCORD_RATE_LIMIT_MESSAGES_PER_
 
 ## Documentation
 
-- **[docs/README.md](docs/README.md)** — doc index  
-- **[docs/TECHNICAL.md](docs/TECHNICAL.md)** — architecture, env, Discord 429, MCP `/mcp`  
-- **[CHANGELOG.md](CHANGELOG.md)** — release notes  
+- **[docs/README.md](docs/README.md)**  doc index  
+- **[docs/TECHNICAL.md](docs/TECHNICAL.md)**  architecture, env, Discord 429, MCP `/mcp`  
+- **[CHANGELOG.md](CHANGELOG.md)**  release notes  
 
 ## Standards
 

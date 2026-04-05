@@ -23,6 +23,19 @@ _DISCORD_HTTP_TIMEOUT = 120.0
 _DISCORD_429_RETRIES = 5
 
 
+def _resolve_discord_token() -> str:
+    """Resolve Discord token from supported env vars with normalization."""
+    # Primary token used by this server; fallback keeps compatibility with older setups.
+    raw = (os.environ.get("DISCORD_TOKEN") or os.environ.get("DISCORD_BOT_TOKEN") or "").strip()
+    if not raw:
+        return ""
+    # Handle common paste issues from .env/UI input.
+    token = raw.strip().strip("\"'").strip()
+    if token.lower().startswith("bot "):
+        token = token[4:].strip()
+    return token
+
+
 def _retry_after_seconds(r: httpx.Response) -> float:
     """Seconds to wait from Discord 429 (header or JSON body)."""
     h = (r.headers.get("retry-after") or r.headers.get("Retry-After") or "").strip()
@@ -65,6 +78,13 @@ def _discord_api_error(r: httpx.Response) -> dict:
     """Structured failure for Discord REST errors (429 includes retry hints)."""
     err = r.text[:500]
     out: dict = {"success": False, "error": f"Discord API {r.status_code}: {err}"}
+    if r.status_code == 401:
+        out["auth_error"] = True
+        out["recovery_options"] = [
+            "Verify DISCORD_TOKEN (or DISCORD_BOT_TOKEN fallback) is a current bot token from Discord Developer Portal.",
+            "Do not include the 'Bot ' prefix in env values; the server adds it automatically.",
+            "Restart the server after updating env vars so changes are applied.",
+        ]
     if r.status_code == 429:
         out["rate_limited"] = True
         out["discord_api_rate_limit"] = True
@@ -81,7 +101,7 @@ def _discord_api_error(r: httpx.Response) -> dict:
 
 
 def _headers() -> dict:
-    token = os.environ.get("DISCORD_TOKEN", "").strip()
+    token = _resolve_discord_token()
     if not token:
         return {}
     return {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
@@ -118,7 +138,10 @@ async def discord_tool(
     logger.info("Executing discord operation: %s", operation, extra={"correlation_id": correlation_id})
     op_lower = operation.lower().strip()
     if not _headers():
-        return {"success": False, "error": "DISCORD_TOKEN not set. Create a bot at Discord Developer Portal."}
+        return {
+            "success": False,
+            "error": "Discord token not set. Set DISCORD_TOKEN (or DISCORD_BOT_TOKEN fallback) with your bot token.",
+        }
     try:
         if op_lower == "list_guilds":
             return await _list_guilds()

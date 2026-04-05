@@ -35,7 +35,7 @@ from fastmcp import FastMCP
 from fastmcp.server.providers.skills import SkillsDirectoryProvider
 
 from .agentic import discord_agentic_workflow
-from .portmanteau import discord_tool
+from .portmanteau import discord_tool, _resolve_discord_token
 from .rate_limit import get_rate_limit_config
 from .sampling import DiscordSamplingHandler
 from .state import _state
@@ -188,7 +188,7 @@ def discord_capabilities_resource() -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Discord MCP REST + MCP mount starting")
-    _state["token_set"] = bool(os.environ.get("DISCORD_TOKEN", "").strip())
+    _state["token_set"] = bool(_resolve_discord_token())
     yield
     logger.info("Discord MCP shutting down")
 
@@ -202,7 +202,7 @@ async def health():
     return {
         "status": "ok",
         "service": "discord-mcp",
-        "token_set": bool(os.environ.get("DISCORD_TOKEN", "").strip()),
+        "token_set": bool(_resolve_discord_token()),
         "rate_limit": get_rate_limit_config(),
         "sampling": sampling_handler.status(),
         "sampling_use_client_llm_preferred": _USE_CLIENT_SAMPLING,
