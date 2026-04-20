@@ -1,7 +1,7 @@
 [project]
 name = "discord-mcp"
 version = "0.1.0"
-description = "FastMCP 3.1 Discord MCP server with sampling, agentic workflow, and SOTA webapp"
+description = "FastMCP 3.1.0 Discord MCP server with sampling, agentic workflow, and SOTA webapp"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

@@ -1,5 +1,7 @@
 # Discord MCP
 
+[![FastMCP Version](https://img.shields.io/badge/FastMCP-3.1.0-blue?style=flat-square&logo=python&logoColor=white)](https://github.com/sandraschi/fastmcp) [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) [![Linted with Biome](https://img.shields.io/badge/Linted_with-Biome-60a5fa?style=flat-square&logo=biome&logoColor=white)](https://biomejs.dev/) [![Built with Just](https://img.shields.io/badge/Built_with-Just-000000?style=flat-square&logo=gnu-bash&logoColor=white)](https://github.com/casey/just)
+
 **Repository:** [github.com/sandraschi/discord-mcp](https://github.com/sandraschi/discord-mcp)
 
 FastMCP **3.1** Discord MCP server with **sampling** (server-side Ollama / OpenAI-compatible or client LLM), **agentic workflow** (`discord_agentic_workflow`), **skills** (`SkillsDirectoryProvider` + `skill:///SKILL.md`), **prompts**, and a **2026 fleet-style** dashboard (React + Vite + Tailwind, dark glass shell).
@@ -29,7 +31,7 @@ FastMCP **3.1** Discord MCP server with **sampling** (server-side Ollama / OpenA
 
 ## MCP HTTP (remote / Inspector)
 
-- Endpoint: `http://localhost:10756/mcp` (streamable HTTP, FastMCP 3.1)
+- Endpoint: `http://localhost:10756/mcp` (streamable HTTP, FastMCP 3.1.0)
 - Discovery / manifest: `GET /api/v1/meta`
 - Health: `GET /api/v1/health` (includes sampling status)
 
@@ -83,5 +85,16 @@ Env: `DISCORD_RATE_LIMIT_MESSAGES_PER_MINUTE`, `DISCORD_RATE_LIMIT_MESSAGES_PER_
 
 ## Standards
 
-- FastMCP 3.1: instructions, sampling handler, skills provider, strict validation, streamable HTTP mount.
+- FastMCP 3.1.0: instructions, sampling handler, skills provider, strict validation, streamable HTTP mount.
 - Webapp: `start.ps1`, ports 10756/10757, dark glass layout, top bar status, activity log, Tools / Skills / Apps pages.
+
+
+## 🛡️ Industrial Quality Stack
+
+This project adheres to **SOTA 14.1** industrial standards for high-fidelity agentic orchestration:
+
+- **Python (Core)**: [Ruff](https://astral.sh/ruff) for linting and formatting. Zero-tolerance for `print` statements in core handlers (`T201`).
+- **Webapp (UI)**: [Biome](https://biomejs.dev/) for sub-millisecond linting. Strict `noConsoleLog` enforcement.
+- **Protocol Compliance**: Hardened `stdout/stderr` isolation to ensure crash-resistant JSON-RPC communication.
+- **Automation**: [Justfile](./justfile) recipes for all fleet operations (`just lint`, `just fix`, `just dev`).
+- **Security**: Automated audits via `bandit` and `safety`.
