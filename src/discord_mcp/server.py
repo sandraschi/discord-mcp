@@ -32,6 +32,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from fastmcp import FastMCP
+from fastmcp.server import create_proxy
 from fastmcp.server.providers.skills import SkillsDirectoryProvider
 
 from .agentic import discord_agentic_workflow
@@ -111,6 +112,19 @@ mcp = FastMCP(
 
 if SKILLS_ROOT.exists():
     mcp.add_provider(SkillsDirectoryProvider(roots=SKILLS_ROOT, reload=False))
+
+# MCP Bridge: proxy upstream servers via MCP_BRIDGE_URLS (comma-separated)
+_bridge_proxies = []
+bridge_urls = os.getenv("MCP_BRIDGE_URLS", "")
+if bridge_urls:
+    for url in bridge_urls.split(","):
+        url = url.strip()
+        if url:
+            try:
+                mcp.add_provider(create_proxy(url))
+                _bridge_proxies.append(url)
+            except Exception:
+                pass
 
 mcp.tool()(discord_tool)
 mcp.tool()(discord_help)
