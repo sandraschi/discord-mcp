@@ -8,6 +8,9 @@
   <a href="https://github.com/PrefectHQ/fastmcp"><img src="https://img.shields.io/badge/FastMCP-3.2-7c5cfc?style=flat-square" alt="FastMCP"></a>
 </p>
 
+
+> 📖 **[Installation Guide](INSTALL.md)** — quick start, manual setup, and troubleshooting
+
 **Repository:** [github.com/sandraschi/discord-mcp](https://github.com/sandraschi/discord-mcp)
 
 FastMCP **3.1** Discord MCP server with **sampling** (server-side Ollama / OpenAI-compatible or client LLM), **agentic workflow** (`discord_agentic_workflow`), **skills** (`SkillsDirectoryProvider` + `skill:///SKILL.md`), **prompts**, and a **2026 fleet-style** dashboard (React + Vite + Tailwind, dark glass shell).
