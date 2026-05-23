@@ -400,7 +400,7 @@ def main() -> None:
     if args.mode == "stdio":
         asyncio.run(mcp.run_stdio_async())
         return
-    uvicorn.run(app, host="0.0.0.0", port=args.port)
+    uvicorn.run(app, host="127.0.0.1", port=args.port)
 
 
 if __name__ == "__main__":
