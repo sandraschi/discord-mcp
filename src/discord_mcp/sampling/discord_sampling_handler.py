@@ -322,8 +322,8 @@ class DiscordSamplingHandler:
             err_body = ""
             try:
                 err_body = e.response.text[:2000]
-            except Exception:
-                pass
+            except Exception as e2:
+                logger.warning("Failed to read error body: %s", e2)
             msg = (
                 f"[Discord-MCP sampling] HTTP {e.response.status_code} from {url}. "
                 f"Check Ollama is running, DISCORD_SAMPLING_MODEL is pulled, and URL. Body: {err_body}"
