@@ -100,7 +100,7 @@ def ingest_messages(
         return {"success": False, "ingested": 0, "error": str(e)}
 
 
-def query(
+def _query(
     query_text: str,
     *,
     top_k: int = 10,
@@ -140,4 +140,4 @@ def query(
 
 async def rag_query_async(query_text: str, top_k: int = 10, table_name: str = _DEFAULT_TABLE) -> dict[str, Any]:
     """Run RAG query in thread (embedding is CPU-bound)."""
-    return await asyncio.to_thread(query, query_text, top_k=top_k, table_name=table_name)
+    return await asyncio.to_thread(_query, query_text, top_k=top_k, table_name=table_name)

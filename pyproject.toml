@@ -11,7 +11,6 @@ dependencies = [
     "pydantic>=2.0.0",
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.23.0",
-    "structlog>=23.0.0",
     "lancedb>=0.4.0",
     "sentence-transformers>=3.0.0",
     "pyarrow>=14.0.0",

@@ -25,10 +25,6 @@ def get_rate_limit_config() -> dict[str, Any]:
     }
 
 
-def _ensure_rate_limit_state() -> None:
-    pass
-
-
 def _prune_old(timestamps: list[float], window: float = WINDOW_SECONDS) -> None:
     now = time.monotonic()
     cutoff = now - window
@@ -38,7 +34,6 @@ def _prune_old(timestamps: list[float], window: float = WINDOW_SECONDS) -> None:
 
 async def check_send_message(channel_id: str, content: str) -> tuple[bool, str | None]:
     """Return (True, None) if allowed, else (False, error_message)."""
-    _ensure_rate_limit_state()
     cfg = get_rate_limit_config()
     max_len = min(cfg["max_message_length"], 2000)
     if len(content) > max_len:
@@ -81,7 +76,6 @@ async def check_send_message(channel_id: str, content: str) -> tuple[bool, str |
 
 def record_send_message(channel_id: str) -> None:
     """Call after a successful send_message."""
-    _ensure_rate_limit_state()
     now = time.monotonic()
     _state.message_timestamps.append(now)
     if channel_id not in _state.channel_message_timestamps:
@@ -93,7 +87,6 @@ def record_send_message(channel_id: str) -> None:
 
 async def check_create_channel() -> tuple[bool, str | None]:
     """Return (True, None) if allowed, else (False, error_message)."""
-    _ensure_rate_limit_state()
     cfg = get_rate_limit_config()
     async with _state.rate_limit_lock:
         ts: list[float] = _state.create_channel_timestamps
@@ -109,14 +102,12 @@ async def check_create_channel() -> tuple[bool, str | None]:
 
 def record_create_channel() -> None:
     """Call after a successful create_channel."""
-    _ensure_rate_limit_state()
     _state.create_channel_timestamps.append(time.monotonic())
     logger.info("Recorded create_channel for rate limit")
 
 
 async def check_create_invite() -> tuple[bool, str | None]:
     """Return (True, None) if allowed, else (False, error_message)."""
-    _ensure_rate_limit_state()
     cfg = get_rate_limit_config()
     async with _state.rate_limit_lock:
         ts: list[float] = _state.create_invite_timestamps
@@ -131,6 +122,5 @@ async def check_create_invite() -> tuple[bool, str | None]:
 
 def record_create_invite() -> None:
     """Call after a successful create_invite."""
-    _ensure_rate_limit_state()
     _state.create_invite_timestamps.append(time.monotonic())
     logger.info("Recorded create_invite for rate limit")

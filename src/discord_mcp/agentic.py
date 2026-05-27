@@ -1,4 +1,8 @@
-"""Agentic workflow and sampling for Discord (FastMCP 3.2 / SEP-1577)."""
+"""Agentic workflow and sampling for Discord (FastMCP 3.2 / SEP-1577).
+
+[DOCSTRING SOTA] — agentic tool uses `Annotated[T, Field(description=...)]`. The docstring
+follows the fleet ## Return Format / ## Examples convention.
+"""
 
 from __future__ import annotations
 
@@ -124,6 +128,10 @@ async def discord_agentic_workflow(
 
     ## Return Format
     {"success": bool, "message": str (summary), "recommendations": list[str]}
+
+    ## Examples
+    discord_agentic_workflow(goal="List all guilds, then list channels in the first one")
+    discord_agentic_workflow(goal="Send 'Hello' to the general channel in My Server")
     """
 
     async def list_guilds() -> str:

@@ -18,7 +18,7 @@ import json
 import logging
 import os
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import httpx
@@ -35,7 +35,7 @@ from mcp.types import (
     ToolUseContent,
 )
 
-if False:  # TYPE_CHECKING
+if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)

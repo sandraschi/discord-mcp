@@ -3,9 +3,11 @@
 import asyncio
 import logging
 import os
+from typing import Annotated
 
 import httpx
 from fastmcp import Context
+from pydantic import Field
 
 from .rag import ingest_messages, rag_query_async
 from .rate_limit import (
@@ -114,30 +116,60 @@ def _headers() -> dict:
 
 async def discord_tool(
     ctx: Context | None = None,
-    operation: str = "list_guilds",
-    guild_id: str | None = None,
-    channel_id: str | None = None,
-    content: str | None = None,
-    limit: int = 50,
-    name: str | None = None,
-    channel_type: int = 0,
-    parent_id: str | None = None,
-    invite_code: str | None = None,
-    max_age: int = 86400,
-    max_uses: int = 0,
-    user_id: str | None = None,
-    guild_name: str = "",
-    channel_name: str = "",
-    table_name: str = "discord_messages",
-    query_text: str = "",
-    top_k: int = 10,
+    operation: Annotated[
+        str,
+        Field(
+            description="Discord operation to perform.",
+            examples=[
+                "list_guilds",
+                "list_channels",
+                "send_message",
+                "get_messages",
+                "list_active_threads",
+                "get_guild_stats",
+                "create_channel",
+                "create_guild",
+                "create_invite",
+                "list_invites",
+                "revoke_invite",
+                "list_members",
+                "get_member",
+                "rag_ingest",
+                "rag_query",
+            ],
+        ),
+    ] = "list_guilds",
+    guild_id: Annotated[str | None, Field(description="Discord guild (server) snowflake ID.")] = None,
+    channel_id: Annotated[str | None, Field(description="Discord channel snowflake ID.")] = None,
+    content: Annotated[str | None, Field(description="Message content for send_message or create/edit.")] = None,
+    limit: Annotated[int, Field(description="Max results (1-100 for messages, 1-1000 for members).", ge=1)] = 50,
+    name: Annotated[str | None, Field(description="Name for create_channel or create_guild.")] = None,
+    channel_type: Annotated[
+        int, Field(description="Channel type: 0=text, 2=voice, 4=category.", ge=0, le=15)
+    ] = 0,
+    parent_id: Annotated[str | None, Field(description="Parent category ID for create_channel.")] = None,
+    invite_code: Annotated[str | None, Field(description="Invite code to revoke (not full URL).")] = None,
+    max_age: Annotated[int, Field(description="Invite max age in seconds (0-604800).", ge=0, le=604800)] = 86400,
+    max_uses: Annotated[int, Field(description="Invite max uses (0=unlimited, max 100).", ge=0, le=100)] = 0,
+    user_id: Annotated[str | None, Field(description="Discord user snowflake ID for get_member.")] = None,
+    guild_name: Annotated[str, Field(description="Server name label for RAG ingest.")] = "",
+    channel_name: Annotated[str, Field(description="Channel name label for RAG ingest.")] = "",
+    table_name: Annotated[str, Field(description="LanceDB table name for RAG operations.")] = "discord_messages",
+    query_text: Annotated[str, Field(description="Semantic search query text for rag_query.")] = "",
+    top_k: Annotated[int, Field(description="Number of top results for rag_query (1-100).", ge=1, le=100)] = 10,
 ) -> dict:
-    """Unified Discord tool via REST API.
+    """Unified Discord portmanteau tool — single entry point for all Discord REST API operations.
 
-    Operations: list_guilds, list_channels, send_message, get_messages, get_guild_stats,
-    create_channel, create_guild, create_invite, list_invites, revoke_invite, list_members, get_member.
-    create_guild requires user OAuth2 (bot returns 403). list_members/get_member require GUILD_MEMBERS intent.
-    Requires DISCORD_TOKEN (bot token). Returns dict with success (bool); on failure includes error (str).
+    [RATIONALE] Portmanteau consolidates 15 Discord operations into one tool, avoiding dozens of
+    atomic tools that bloat the MCP host context. The operation parameter dispatches internally.
+
+    ## Return Format
+    {"success": bool, ...operation-specific fields, "error": str (on failure)}
+
+    ## Examples
+    discord(operation="list_guilds")
+    discord(operation="send_message", channel_id="123", content="Hello!")
+    discord(operation="rag_query", query_text="meeting notes", top_k=5)
     """
     correlation_id = getattr(ctx, "correlation_id", "mcp") if ctx else "manual"
     logger.info("Executing discord operation: %s", operation, extra={"correlation_id": correlation_id})

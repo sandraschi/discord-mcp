@@ -10,6 +10,7 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
+from typing import Annotated
 
 
 def _load_dotenv_file() -> None:
@@ -34,6 +35,7 @@ from fastmcp import FastMCP  # noqa: E402
 from fastmcp.server import create_proxy  # noqa: E402
 from fastmcp.server.providers.skills import SkillsDirectoryProvider  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
+from pydantic import Field as PydanticField  # noqa: E402
 
 from .agentic import discord_agentic_workflow  # noqa: E402
 from .portmanteau import _resolve_discord_token, discord_tool  # noqa: E402
@@ -55,6 +57,7 @@ _USE_CLIENT_SAMPLING = os.getenv("DISCORD_SAMPLING_USE_CLIENT_LLM", "").lower() 
 )
 
 SKILLS_ROOT = Path(__file__).resolve().parent / "skills"
+_skills_cache: dict[str, dict] | None = None
 sampling_handler = DiscordSamplingHandler()
 
 _MCP_INSTRUCTIONS = """You are Discord MCP (FastMCP 3.2): a fleet-standard bridge to Discord via the bot REST API.
@@ -122,8 +125,25 @@ _HELP_CATEGORIES = {
 }
 
 
-async def discord_help(category: str | None = None, topic: str | None = None) -> dict:
-    """Multi-level help for Discord MCP."""
+async def discord_help(
+    category: Annotated[
+        str | None,
+        PydanticField(description="Optional help category key (e.g. 'send_message', 'safety'). Omit for full index."),
+    ] = None,
+    topic: Annotated[str | None, PydanticField(description="Optional sub-topic within a category.")] = None,
+) -> dict:
+    """Multi-level help system for Discord MCP operations and configuration.
+
+    ## Return Format
+    {"help": str, "categories": dict}  (full index without category)
+    {"category": str, "detail": str}   (single category lookup)
+    {"error": str, "available": list}  (unknown category)
+
+    ## Examples
+    discord_help()
+    discord_help(category="send_message")
+    discord_help(category="safety")
+    """
     _ = topic
     if not category:
         return {"help": "Discord MCP", "categories": _HELP_CATEGORIES}
@@ -284,8 +304,12 @@ async def meta():
 
 @app.get("/api/v1/skills")
 async def list_skills():
+    global _skills_cache
+    if _skills_cache is not None:
+        return _skills_cache
     if not SKILLS_ROOT.is_dir():
-        return {"skills": []}
+        _skills_cache = {"skills": []}
+        return _skills_cache
     out: list[dict[str, str]] = []
     for d in sorted(SKILLS_ROOT.iterdir()):
         if not d.is_dir():
@@ -299,7 +323,8 @@ async def list_skills():
             continue
         preview = text[:800] + ("…" if len(text) > 800 else "")
         out.append({"name": d.name, "preview": preview})
-    return {"skills": out}
+    _skills_cache = {"skills": out}
+    return _skills_cache
 
 
 @app.get("/api/v1/guilds")
