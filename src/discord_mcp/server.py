@@ -122,6 +122,73 @@ _HELP_CATEGORIES = {
         "discord(operation='rag_query', query_text='...', top_k=10, "
         "table_name='discord_messages')."
     ),
+    "edit_message": (
+        "Edit a bot-sent message. discord(operation='edit_message', "
+        "channel_id='...', message_id='...', content='new text')."
+    ),
+    "delete_message": (
+        "Delete a bot-sent message. discord(operation='delete_message', "
+        "channel_id='...', message_id='...', reason='...')."
+    ),
+    "create_dm": ("Create a DM channel with a user. discord(operation='create_dm', user_id='...')."),
+    "ban_member": (
+        "Ban a user from a guild. discord(operation='ban_member', guild_id='...', "
+        "user_id='...', delete_message_seconds=0, reason='...'). Requires BAN_MEMBERS."
+    ),
+    "unban_member": ("Remove a ban. discord(operation='unban_member', guild_id='...', user_id='...')."),
+    "kick_member": (
+        "Kick a user from a guild. discord(operation='kick_member', guild_id='...', "
+        "user_id='...', reason='...'). Requires KICK_MEMBERS."
+    ),
+    "timeout_member": (
+        "Timeout a user (disable communication). discord(operation='timeout_member', "
+        "guild_id='...', user_id='...', communication_disabled_until='ISO-8601 timestamp'). "
+        "Requires MODERATE_MEMBERS."
+    ),
+    "list_bans": (
+        "List banned users. discord(operation='list_bans', guild_id='...', limit=100). Requires BAN_MEMBERS."
+    ),
+    "list_roles": ("List guild roles. discord(operation='list_roles', guild_id='...')."),
+    "create_role": (
+        "Create a role. discord(operation='create_role', guild_id='...', name='Role', "
+        "permissions='0', color=0, hoist=False, mentionable=False). Requires MANAGE_ROLES."
+    ),
+    "delete_role": (
+        "Delete a role. discord(operation='delete_role', guild_id='...', role_id='...'). Requires MANAGE_ROLES."
+    ),
+    "assign_role": (
+        "Assign a role to a member. discord(operation='assign_role', guild_id='...', "
+        "user_id='...', role_id='...'). Requires MANAGE_ROLES."
+    ),
+    "remove_role": (
+        "Remove a role from a member. discord(operation='remove_role', guild_id='...', "
+        "user_id='...', role_id='...'). Requires MANAGE_ROLES."
+    ),
+    "list_webhooks": (
+        "List webhooks in a channel. discord(operation='list_webhooks', channel_id='...'). Requires MANAGE_WEBHOOKS."
+    ),
+    "create_webhook": (
+        "Create a webhook. discord(operation='create_webhook', channel_id='...', "
+        "webhook_name='MyHook'). Returns token — save it! Requires MANAGE_WEBHOOKS."
+    ),
+    "delete_webhook": (
+        "Delete a webhook. discord(operation='delete_webhook', webhook_id='...'). Requires MANAGE_WEBHOOKS."
+    ),
+    "send_webhook": (
+        "Execute a webhook (send message). discord(operation='send_webhook', "
+        "webhook_id='...', webhook_token='...', content='Hello!'). Uses webhook token, not bot."
+    ),
+    "list_emojis": ("List custom emojis in a guild. discord(operation='list_emojis', guild_id='...')."),
+    "delete_emoji": (
+        "Delete a custom emoji. discord(operation='delete_emoji', guild_id='...', "
+        "role_id='emoji_id', reason='...'). Requires MANAGE_EMOJIS_AND_STICKERS. "
+        "Note: use role_id param for the emoji ID."
+    ),
+    "list_stickers": ("List custom stickers in a guild. discord(operation='list_stickers', guild_id='...')."),
+    "get_audit_log": (
+        "Fetch guild audit log entries. discord(operation='get_audit_log', guild_id='...', "
+        "limit=50, user_id='?', action_type=?)). Requires VIEW_AUDIT_LOG."
+    ),
 }
 
 
@@ -288,7 +355,49 @@ async def meta():
         "fastmcp": "3.2",
         "mcp_transport": "streamable-http",
         "mcp_path": "/mcp",
-        "tools": ["discord", "discord_help", "discord_agentic_workflow"],
+        "tools": [
+            "discord",
+            "discord_help",
+            "discord_agentic_workflow",
+        ],
+        "operations": [
+            "list_guilds",
+            "list_channels",
+            "send_message",
+            "get_messages",
+            "edit_message",
+            "delete_message",
+            "list_active_threads",
+            "get_guild_stats",
+            "create_channel",
+            "create_guild",
+            "create_invite",
+            "list_invites",
+            "revoke_invite",
+            "list_members",
+            "get_member",
+            "ban_member",
+            "unban_member",
+            "kick_member",
+            "timeout_member",
+            "list_bans",
+            "create_dm",
+            "list_roles",
+            "create_role",
+            "delete_role",
+            "assign_role",
+            "remove_role",
+            "list_webhooks",
+            "create_webhook",
+            "delete_webhook",
+            "send_webhook",
+            "list_emojis",
+            "delete_emoji",
+            "list_stickers",
+            "get_audit_log",
+            "rag_ingest",
+            "rag_query",
+        ],
         "prompts": [
             "discord_quick_start",
             "discord_diagnostics",
@@ -390,6 +499,36 @@ class AgenticBody(BaseModel):
     goal: str
 
 
+class EditMessageBody(BaseModel):
+    content: str
+
+
+class BanBody(BaseModel):
+    delete_message_seconds: int = 0
+    reason: str = ""
+
+
+class TimeoutBody(BaseModel):
+    communication_disabled_until: str
+    reason: str = ""
+
+
+class RoleBody(BaseModel):
+    name: str
+    permissions: str = "0"
+    color: int = 0
+    hoist: bool = False
+    mentionable: bool = False
+
+
+class WebhookBody(BaseModel):
+    webhook_name: str
+
+
+class SendWebhookBody(BaseModel):
+    content: str
+
+
 @app.post("/api/v1/agentic")
 async def api_agentic(body: AgenticBody = Body(...)):
     """REST wrapper around discord_tool operations.
@@ -399,6 +538,8 @@ async def api_agentic(body: AgenticBody = Body(...)):
         "list_channels",
         "send_message",
         "get_messages",
+        "edit_message",
+        "delete_message",
         "get_guild_stats",
         "list_active_threads",
         "create_channel",
@@ -407,6 +548,25 @@ async def api_agentic(body: AgenticBody = Body(...)):
         "revoke_invite",
         "list_members",
         "get_member",
+        "ban_member",
+        "unban_member",
+        "kick_member",
+        "timeout_member",
+        "list_bans",
+        "create_dm",
+        "list_roles",
+        "create_role",
+        "delete_role",
+        "assign_role",
+        "remove_role",
+        "list_webhooks",
+        "create_webhook",
+        "delete_webhook",
+        "send_webhook",
+        "list_emojis",
+        "delete_emoji",
+        "list_stickers",
+        "get_audit_log",
     ]
     return {
         "success": True,
@@ -482,7 +642,236 @@ async def api_send_message(channel_id: str, body: SendMessageBody = Body(...)):
     return out
 
 
-@app.post("/api/v1/rag/ingest")
+# --- Message edit/delete ---
+
+
+@app.patch("/api/v1/channels/{channel_id}/messages/{message_id}")
+async def api_edit_message(channel_id: str, message_id: str, body: EditMessageBody = Body(...)):
+    out = await discord_tool(
+        ctx=None, operation="edit_message", channel_id=channel_id, message_id=message_id, content=body.content
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Edit failed"))
+    return out
+
+
+@app.delete("/api/v1/channels/{channel_id}/messages/{message_id}")
+async def api_delete_message(channel_id: str, message_id: str):
+    out = await discord_tool(ctx=None, operation="delete_message", channel_id=channel_id, message_id=message_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Delete failed"))
+    return out
+
+
+# --- DM ---
+
+
+@app.post("/api/v1/dm")
+async def api_create_dm(user_id: str = Body(..., embed=True)):
+    out = await discord_tool(ctx=None, operation="create_dm", user_id=user_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "DM creation failed"))
+    return out
+
+
+# --- Moderation ---
+
+
+@app.put("/api/v1/guilds/{guild_id}/bans/{user_id}")
+async def api_ban_member(guild_id: str, user_id: str, body: BanBody = Body(...)):
+    out = await discord_tool(
+        ctx=None,
+        operation="ban_member",
+        guild_id=guild_id,
+        user_id=user_id,
+        delete_message_seconds=body.delete_message_seconds,
+        reason=body.reason,
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Ban failed"))
+    return out
+
+
+@app.delete("/api/v1/guilds/{guild_id}/bans/{user_id}")
+async def api_unban_member(guild_id: str, user_id: str):
+    out = await discord_tool(ctx=None, operation="unban_member", guild_id=guild_id, user_id=user_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Unban failed"))
+    return out
+
+
+@app.delete("/api/v1/guilds/{guild_id}/members/{user_id}/kick")
+async def api_kick_member(guild_id: str, user_id: str, reason: str = ""):
+    out = await discord_tool(ctx=None, operation="kick_member", guild_id=guild_id, user_id=user_id, reason=reason)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Kick failed"))
+    return out
+
+
+@app.patch("/api/v1/guilds/{guild_id}/members/{user_id}/timeout")
+async def api_timeout_member(guild_id: str, user_id: str, body: TimeoutBody = Body(...)):
+    out = await discord_tool(
+        ctx=None,
+        operation="timeout_member",
+        guild_id=guild_id,
+        user_id=user_id,
+        communication_disabled_until=body.communication_disabled_until,
+        reason=body.reason,
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Timeout failed"))
+    return out
+
+
+@app.get("/api/v1/guilds/{guild_id}/bans")
+async def api_list_bans(guild_id: str, limit: int = 100):
+    out = await discord_tool(ctx=None, operation="list_bans", guild_id=guild_id, limit=limit)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Bans unavailable"))
+    return out
+
+
+# --- Roles ---
+
+
+@app.get("/api/v1/guilds/{guild_id}/roles")
+async def api_list_roles(guild_id: str):
+    out = await discord_tool(ctx=None, operation="list_roles", guild_id=guild_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Roles unavailable"))
+    return out
+
+
+@app.post("/api/v1/guilds/{guild_id}/roles")
+async def api_create_role(guild_id: str, body: RoleBody = Body(...)):
+    out = await discord_tool(
+        ctx=None,
+        operation="create_role",
+        guild_id=guild_id,
+        name=body.name,
+        permissions=body.permissions,
+        color=body.color,
+        hoist=body.hoist,
+        mentionable=body.mentionable,
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Role creation failed"))
+    return out
+
+
+@app.delete("/api/v1/guilds/{guild_id}/roles/{role_id}")
+async def api_delete_role(guild_id: str, role_id: str):
+    out = await discord_tool(ctx=None, operation="delete_role", guild_id=guild_id, role_id=role_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Role deletion failed"))
+    return out
+
+
+@app.put("/api/v1/guilds/{guild_id}/members/{user_id}/roles/{role_id}")
+async def api_assign_role(guild_id: str, user_id: str, role_id: str):
+    out = await discord_tool(ctx=None, operation="assign_role", guild_id=guild_id, user_id=user_id, role_id=role_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Role assignment failed"))
+    return out
+
+
+@app.delete("/api/v1/guilds/{guild_id}/members/{user_id}/roles/{role_id}")
+async def api_remove_role(guild_id: str, user_id: str, role_id: str):
+    out = await discord_tool(ctx=None, operation="remove_role", guild_id=guild_id, user_id=user_id, role_id=role_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Role removal failed"))
+    return out
+
+
+# --- Webhooks ---
+
+
+@app.get("/api/v1/channels/{channel_id}/webhooks")
+async def api_list_webhooks(channel_id: str):
+    out = await discord_tool(ctx=None, operation="list_webhooks", channel_id=channel_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Webhooks unavailable"))
+    return out
+
+
+@app.post("/api/v1/channels/{channel_id}/webhooks")
+async def api_create_webhook(channel_id: str, body: WebhookBody = Body(...)):
+    out = await discord_tool(
+        ctx=None, operation="create_webhook", channel_id=channel_id, webhook_name=body.webhook_name
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Webhook creation failed"))
+    return out
+
+
+@app.delete("/api/v1/webhooks/{webhook_id}")
+async def api_delete_webhook(webhook_id: str):
+    out = await discord_tool(ctx=None, operation="delete_webhook", webhook_id=webhook_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Webhook deletion failed"))
+    return out
+
+
+@app.post("/api/v1/webhooks/{webhook_id}/{webhook_token}")
+async def api_send_webhook(webhook_id: str, webhook_token: str, body: SendWebhookBody = Body(...)):
+    out = await discord_tool(
+        ctx=None,
+        operation="send_webhook",
+        webhook_id=webhook_id,
+        webhook_token=webhook_token,
+        content=body.content,
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Webhook send failed"))
+    return out
+
+
+# --- Emoji & Stickers ---
+
+
+@app.get("/api/v1/guilds/{guild_id}/emojis")
+async def api_list_emojis(guild_id: str):
+    out = await discord_tool(ctx=None, operation="list_emojis", guild_id=guild_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Emojis unavailable"))
+    return out
+
+
+@app.delete("/api/v1/guilds/{guild_id}/emojis/{emoji_id}")
+async def api_delete_emoji(guild_id: str, emoji_id: str, reason: str = ""):
+    out = await discord_tool(ctx=None, operation="delete_emoji", guild_id=guild_id, role_id=emoji_id, reason=reason)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Emoji deletion failed"))
+    return out
+
+
+@app.get("/api/v1/guilds/{guild_id}/stickers")
+async def api_list_stickers(guild_id: str):
+    out = await discord_tool(ctx=None, operation="list_stickers", guild_id=guild_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Stickers unavailable"))
+    return out
+
+
+# --- Audit Log ---
+
+
+@app.get("/api/v1/guilds/{guild_id}/audit-logs")
+async def api_audit_log(guild_id: str, limit: int = 50, user_id: str | None = None, action_type: int | None = None):
+    out = await discord_tool(
+        ctx=None,
+        operation="get_audit_log",
+        guild_id=guild_id,
+        limit=limit,
+        user_id=user_id,
+        action_type=action_type,
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Audit log unavailable"))
+    return out
+
+
+# --- RAG ---
 async def api_rag_ingest(body: RagIngestBody = Body(...)):
     out = await discord_tool(
         ctx=None,

@@ -117,6 +117,142 @@ async def _get_member(guild_id: str, user_id: str) -> str:
     )
 
 
+async def _edit_message(channel_id: str, message_id: str, content: str) -> str:
+    out = await discord_tool(
+        ctx=None, operation="edit_message", channel_id=channel_id, message_id=message_id, content=content
+    )
+    if not out.get("success"):
+        return str(out.get("error", out))
+    return f"Edited message {message_id} in channel {channel_id}"
+
+
+async def _delete_message(channel_id: str, message_id: str) -> str:
+    out = await discord_tool(ctx=None, operation="delete_message", channel_id=channel_id, message_id=message_id)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    return f"Deleted message {message_id} in channel {channel_id}"
+
+
+async def _create_dm(user_id: str) -> str:
+    out = await discord_tool(ctx=None, operation="create_dm", user_id=user_id)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    return f"DM channel created: {out.get('channel_id')}"
+
+
+async def _ban_member(guild_id: str, user_id: str, delete_message_seconds: int = 0, reason: str = "") -> str:
+    out = await discord_tool(
+        ctx=None,
+        operation="ban_member",
+        guild_id=guild_id,
+        user_id=user_id,
+        delete_message_seconds=delete_message_seconds,
+        reason=reason,
+    )
+    if not out.get("success"):
+        return str(out.get("error", out))
+    return f"Banned user {user_id} from {guild_id}"
+
+
+async def _unban_member(guild_id: str, user_id: str) -> str:
+    out = await discord_tool(ctx=None, operation="unban_member", guild_id=guild_id, user_id=user_id)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    return f"Unbanned user {user_id} from {guild_id}"
+
+
+async def _kick_member(guild_id: str, user_id: str, reason: str = "") -> str:
+    out = await discord_tool(ctx=None, operation="kick_member", guild_id=guild_id, user_id=user_id, reason=reason)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    return f"Kicked user {user_id} from {guild_id}"
+
+
+async def _list_roles(guild_id: str) -> str:
+    out = await discord_tool(ctx=None, operation="list_roles", guild_id=guild_id)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    roles = out.get("roles", [])
+    return "\n".join([f"- {r.get('name')} (id: {r.get('id')}, color: {r.get('color')})" for r in roles]) or "No roles"
+
+
+async def _assign_role(guild_id: str, user_id: str, role_id: str) -> str:
+    out = await discord_tool(ctx=None, operation="assign_role", guild_id=guild_id, user_id=user_id, role_id=role_id)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    return f"Assigned role {role_id} to user {user_id}"
+
+
+async def _remove_role(guild_id: str, user_id: str, role_id: str) -> str:
+    out = await discord_tool(ctx=None, operation="remove_role", guild_id=guild_id, user_id=user_id, role_id=role_id)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    return f"Removed role {role_id} from user {user_id}"
+
+
+async def _list_webhooks(channel_id: str) -> str:
+    out = await discord_tool(ctx=None, operation="list_webhooks", channel_id=channel_id)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    whs = out.get("webhooks", [])
+    return "\n".join([f"- {w.get('name')} (id: {w.get('id')})" for w in whs]) or "No webhooks"
+
+
+async def _create_webhook(channel_id: str, webhook_name: str) -> str:
+    out = await discord_tool(ctx=None, operation="create_webhook", channel_id=channel_id, webhook_name=webhook_name)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    return f"Created webhook {out.get('name')} (id: {out.get('webhook_id')})"
+
+
+async def _delete_webhook(webhook_id: str) -> str:
+    out = await discord_tool(ctx=None, operation="delete_webhook", webhook_id=webhook_id)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    return f"Deleted webhook {webhook_id}"
+
+
+async def _list_emojis(guild_id: str) -> str:
+    out = await discord_tool(ctx=None, operation="list_emojis", guild_id=guild_id)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    emojis = out.get("emojis", [])
+    return "\n".join([f"- :{e.get('name')}: (id: {e.get('id')})" for e in emojis]) or "No emojis"
+
+
+async def _list_stickers(guild_id: str) -> str:
+    out = await discord_tool(ctx=None, operation="list_stickers", guild_id=guild_id)
+    if not out.get("success"):
+        return str(out.get("error", out))
+    stickers = out.get("stickers", [])
+    return "\n".join([f"- {s.get('name')} (id: {s.get('id')})" for s in stickers]) or "No stickers"
+
+
+async def _get_audit_log(
+    guild_id: str, limit: int = 20, user_id: str | None = None, action_type: int | None = None
+) -> str:
+    out = await discord_tool(
+        ctx=None,
+        operation="get_audit_log",
+        guild_id=guild_id,
+        limit=limit,
+        user_id=user_id,
+        action_type=action_type,
+    )
+    if not out.get("success"):
+        return str(out.get("error", out))
+    entries = out.get("entries", [])
+    return (
+        "\n".join(
+            [
+                f"[{e.get('created_at')}] type={e.get('action_type')} user={e.get('user_id')} -> {e.get('target_id')}"
+                for e in entries
+            ]
+        )
+        or "No audit log entries"
+    )
+
+
 async def discord_agentic_workflow(
     goal: Annotated[str, Field(description="Natural-language objective (e.g. list channels then summarize activity).")],
     ctx: Context,
@@ -167,14 +303,70 @@ async def discord_agentic_workflow(
     async def get_member(guild_id: str, user_id: str) -> str:
         return await _get_member(guild_id, user_id)
 
+    async def edit_message(channel_id: str, message_id: str, content: str) -> str:
+        return await _edit_message(channel_id, message_id, content)
+
+    async def delete_message(channel_id: str, message_id: str) -> str:
+        return await _delete_message(channel_id, message_id)
+
+    async def create_dm(user_id: str) -> str:
+        return await _create_dm(user_id)
+
+    async def ban_member(guild_id: str, user_id: str, delete_message_seconds: int = 0, reason: str = "") -> str:
+        return await _ban_member(guild_id, user_id, delete_message_seconds, reason)
+
+    async def unban_member(guild_id: str, user_id: str) -> str:
+        return await _unban_member(guild_id, user_id)
+
+    async def kick_member(guild_id: str, user_id: str, reason: str = "") -> str:
+        return await _kick_member(guild_id, user_id, reason)
+
+    async def list_roles(guild_id: str) -> str:
+        return await _list_roles(guild_id)
+
+    async def assign_role(guild_id: str, user_id: str, role_id: str) -> str:
+        return await _assign_role(guild_id, user_id, role_id)
+
+    async def remove_role(guild_id: str, user_id: str, role_id: str) -> str:
+        return await _remove_role(guild_id, user_id, role_id)
+
+    async def list_webhooks(channel_id: str) -> str:
+        return await _list_webhooks(channel_id)
+
+    async def create_webhook(channel_id: str, webhook_name: str) -> str:
+        return await _create_webhook(channel_id, webhook_name)
+
+    async def delete_webhook(webhook_id: str) -> str:
+        return await _delete_webhook(webhook_id)
+
+    async def list_emojis(guild_id: str) -> str:
+        return await _list_emojis(guild_id)
+
+    async def list_stickers(guild_id: str) -> str:
+        return await _list_stickers(guild_id)
+
+    async def get_audit_log(
+        guild_id: str, limit: int = 20, user_id: str | None = None, action_type: int | None = None
+    ) -> str:
+        return await _get_audit_log(guild_id, limit, user_id, action_type)
+
     system_prompt = (
-        "You are a Discord bot operator. Tools: list_guilds (no args), list_channels(guild_id), "
+        "You are a Discord bot operator with full moderation and management capabilities. "
+        "Tools: list_guilds (no args), list_channels(guild_id), "
         "send_message(channel_id, content), get_messages(channel_id, limit optional), "
+        "edit_message(channel_id, message_id, content), delete_message(channel_id, message_id), "
         "get_guild_stats(guild_id), create_channel(guild_id, name, channel_type=0, parent_id optional), "
         "create_invite(channel_id, max_age=86400, max_uses=0), list_invites(guild_id), revoke_invite(invite_code), "
-        "list_members(guild_id, limit=100), get_member(guild_id, user_id). "
+        "list_members(guild_id, limit=100), get_member(guild_id, user_id), "
+        "create_dm(user_id), ban_member(guild_id, user_id, delete_message_seconds, reason optional), "
+        "unban_member(guild_id, user_id), kick_member(guild_id, user_id, reason optional), "
+        "list_roles(guild_id), assign_role(guild_id, user_id, role_id), remove_role(guild_id, user_id, role_id), "
+        "list_webhooks(channel_id), create_webhook(channel_id, webhook_name), delete_webhook(webhook_id), "
+        "list_emojis(guild_id), list_stickers(guild_id), "
+        "get_audit_log(guild_id, limit, user_id optional, action_type optional). "
         "Channel types: 0=text, 2=voice, 4=category. "
-        "list_members/get_member need GUILD_MEMBERS intent. "
+        "Moderation requires BAN_MEMBERS (ban/unban), KICK_MEMBERS (kick), MODERATE_MEMBERS permission. "
+        "Roles require MANAGE_ROLES. Webhooks require MANAGE_WEBHOOKS. Audit log requires VIEW_AUDIT_LOG. "
         "Creating new servers (guilds) is not supported with bot token. "
         "Plan steps; use IDs from list_guilds/list_channels. Summarize."
     )
@@ -187,6 +379,8 @@ async def discord_agentic_workflow(
                 list_channels,
                 send_message,
                 get_messages,
+                edit_message,
+                delete_message,
                 get_guild_stats,
                 create_channel,
                 create_invite,
@@ -194,6 +388,19 @@ async def discord_agentic_workflow(
                 revoke_invite,
                 list_members,
                 get_member,
+                create_dm,
+                ban_member,
+                unban_member,
+                kick_member,
+                list_roles,
+                assign_role,
+                remove_role,
+                list_webhooks,
+                create_webhook,
+                delete_webhook,
+                list_emojis,
+                list_stickers,
+                get_audit_log,
             ],
             temperature=0.2,
             max_tokens=1024,

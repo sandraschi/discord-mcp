@@ -1,4 +1,5 @@
 """Entry point for PyInstaller-bundled server."""
+
 import sys
 
 sys.path.insert(0, ".")
