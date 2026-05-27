@@ -1,28 +1,28 @@
-import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronUp, Terminal } from 'lucide-react'
+import { ChevronDown, ChevronUp, Terminal } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
-export type LogEntry = { t: string; level: string; message: string }
+export type LogEntry = { t: string; level: string; message: string };
 
 type Props = {
-  lines: LogEntry[]
-  defaultOpen?: boolean
-}
+  lines: LogEntry[];
+  defaultOpen?: boolean;
+};
 
 export default function LoggerPanel({ lines, defaultOpen = false }: Props) {
-  const [open, setOpen] = useState(defaultOpen)
-  const [paused, setPaused] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(defaultOpen);
+  const [paused, setPaused] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open || paused || !ref.current) return
-    ref.current.scrollTop = ref.current.scrollHeight
-  }, [lines, open, paused])
+    if (!open || paused || !ref.current) return;
+    ref.current.scrollTop = ref.current.scrollHeight;
+  }, [open, paused]);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none flex justify-center">
       <div
         className="pointer-events-auto w-full max-w-7xl mx-auto px-4 mb-4"
-        style={{ marginLeft: 'max(1rem, env(safe-area-inset-left))' }}
+        style={{ marginLeft: "max(1rem, env(safe-area-inset-left))" }}
       >
         <div className="rounded-2xl border border-white/10 bg-[#0c0c10]/95 backdrop-blur-xl shadow-2xl overflow-hidden">
           <button
@@ -34,7 +34,11 @@ export default function LoggerPanel({ lines, defaultOpen = false }: Props) {
               <Terminal className="w-4 h-4 text-indigo-400" />
               Activity log
             </span>
-            {open ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            {open ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronUp className="w-4 h-4" />
+            )}
           </button>
           {open ? (
             <div className="border-t border-white/5">
@@ -57,19 +61,22 @@ export default function LoggerPanel({ lines, defaultOpen = false }: Props) {
                   <span className="text-slate-600">No events yet.</span>
                 ) : (
                   lines.map((line, i) => (
-                    <div key={`${line.t}-${i}`} className="whitespace-pre-wrap break-all">
-                      <span className="text-slate-600">{line.t}</span>{' '}
+                    <div
+                      key={`${line.t}-${i}`}
+                      className="whitespace-pre-wrap break-all"
+                    >
+                      <span className="text-slate-600">{line.t}</span>{" "}
                       <span
                         className={
-                          line.level === 'ERROR'
-                            ? 'text-red-400'
-                            : line.level === 'WARN'
-                              ? 'text-amber-400'
-                              : 'text-slate-500'
+                          line.level === "ERROR"
+                            ? "text-red-400"
+                            : line.level === "WARN"
+                              ? "text-amber-400"
+                              : "text-slate-500"
                         }
                       >
                         [{line.level}]
-                      </span>{' '}
+                      </span>{" "}
                       {line.message}
                     </div>
                   ))
@@ -80,5 +87,5 @@ export default function LoggerPanel({ lines, defaultOpen = false }: Props) {
         </div>
       </div>
     </div>
-  )
+  );
 }

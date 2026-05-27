@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Discord MCP Server — FastMCP 3.1, sampling, skills, agentic workflow (SEP-1577)."""
+"""Discord MCP Server — FastMCP 3.2, sampling, skills, agentic workflow (SEP-1577)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -26,20 +27,19 @@ def _load_dotenv_file() -> None:
 
 _load_dotenv_file()
 
-import uvicorn
-from fastapi import Body, FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+import uvicorn  # noqa: E402
+from fastapi import Body, FastAPI, HTTPException  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastmcp import FastMCP  # noqa: E402
+from fastmcp.server import create_proxy  # noqa: E402
+from fastmcp.server.providers.skills import SkillsDirectoryProvider  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
 
-from fastmcp import FastMCP
-from fastmcp.server import create_proxy
-from fastmcp.server.providers.skills import SkillsDirectoryProvider
-
-from .agentic import discord_agentic_workflow
-from .portmanteau import discord_tool, _resolve_discord_token
-from .rate_limit import get_rate_limit_config
-from .sampling import DiscordSamplingHandler
-from .state import _state
+from .agentic import discord_agentic_workflow  # noqa: E402
+from .portmanteau import _resolve_discord_token, discord_tool  # noqa: E402
+from .rate_limit import get_rate_limit_config  # noqa: E402
+from .sampling import DiscordSamplingHandler  # noqa: E402
+from .state import _state  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,11 +57,15 @@ _USE_CLIENT_SAMPLING = os.getenv("DISCORD_SAMPLING_USE_CLIENT_LLM", "").lower() 
 SKILLS_ROOT = Path(__file__).resolve().parent / "skills"
 sampling_handler = DiscordSamplingHandler()
 
-_MCP_INSTRUCTIONS = """You are Discord MCP (FastMCP 3.1): a fleet-standard bridge to Discord via the bot REST API.
+_MCP_INSTRUCTIONS = """You are Discord MCP (FastMCP 3.2): a fleet-standard bridge to Discord via the bot REST API.
 
-CORE: Portmanteau tool `discord(operation=...)` for guilds, channels, messages, invites, members, threads, stats, and optional LanceDB RAG (rag_ingest, rag_query).
-AGENTIC: `discord_agentic_workflow(goal, ctx)` plans multi-step tasks using sampling with tools (SEP-1577). Requires DISCORD_TOKEN; sampling uses local Ollama by default (DISCORD_SAMPLING_*) or client LLM when configured.
-SAFETY: Server-side rate limits on send_message, channel creation, and invites. Respect Discord ToS and server rules.
+CORE: Portmanteau tool `discord(operation=...)` for guilds, channels, messages, invites, members,
+threads, stats, and optional LanceDB RAG (rag_ingest, rag_query).
+AGENTIC: `discord_agentic_workflow(goal, ctx)` plans multi-step tasks using sampling with tools
+(SEP-1577). Requires DISCORD_TOKEN; sampling uses local Ollama by default (DISCORD_SAMPLING_*) or
+client LLM when configured.
+SAFETY: Server-side rate limits on send_message, channel creation, and invites. Respect Discord ToS
+and server rules.
 SKILLS: Bundled workflows under resource URIs skill://*/SKILL.md — see list_resources.
 PROMPTS: Use registered prompts for setup, moderation, RAG, and invite workflows.
 
@@ -74,19 +78,47 @@ _HELP_CATEGORIES = {
     "list_channels": "List channels in a guild. discord(operation='list_channels', guild_id='...').",
     "send_message": "Send a message. discord(operation='send_message', channel_id='...', content='...').",
     "get_messages": "Get recent messages. discord(operation='get_messages', channel_id='...', limit=50).",
-    "list_active_threads": "List active threads in a channel. discord(operation='list_active_threads', channel_id='...').",
-    "get_guild_stats": "Guild stats (member_count, online_count). discord(operation='get_guild_stats', guild_id='...').",
-    "create_channel": "Create channel. discord(operation='create_channel', guild_id='...', name='...', channel_type=0, parent_id=?). type: 0=text, 2=voice, 4=category.",
-    "create_guild": "Create server (user OAuth2 only; bot token returns 403). discord(operation='create_guild', name='...').",
-    "create_invite": "Create invite link. discord(operation='create_invite', channel_id='...', max_age=86400, max_uses=0). Rate limited.",
+    "list_active_threads": (
+        "List active threads in a channel. discord(operation='list_active_threads', channel_id='...')."
+    ),
+    "get_guild_stats": (
+        "Guild stats (member_count, online_count). discord(operation='get_guild_stats', guild_id='...')."
+    ),
+    "create_channel": (
+        "Create channel. discord(operation='create_channel', guild_id='...', "
+        "name='...', channel_type=0, parent_id=?). type: 0=text, 2=voice, 4=category."
+    ),
+    "create_guild": (
+        "Create server (user OAuth2 only; bot token returns 403). discord(operation='create_guild', name='...')."
+    ),
+    "create_invite": (
+        "Create invite link. discord(operation='create_invite', channel_id='...', "
+        "max_age=86400, max_uses=0). Rate limited."
+    ),
     "list_invites": "List guild invites. discord(operation='list_invites', guild_id='...').",
     "revoke_invite": "Revoke invite. discord(operation='revoke_invite', invite_code='...').",
-    "list_members": "List guild members (GUILD_MEMBERS intent). discord(operation='list_members', guild_id='...', limit=100).",
-    "get_member": "Get one member (GUILD_MEMBERS intent). discord(operation='get_member', guild_id='...', user_id='...').",
+    "list_members": (
+        "List guild members (GUILD_MEMBERS intent). discord(operation='list_members', guild_id='...', limit=100)."
+    ),
+    "get_member": (
+        "Get one member (GUILD_MEMBERS intent). discord(operation='get_member', guild_id='...', user_id='...')."
+    ),
     "connection": "Set DISCORD_TOKEN (bot token from Discord Developer Portal).",
-    "safety": "Rate limits: messages/min, per-channel/min, channels/min, invites/min, min interval, max message length. Env: DISCORD_RATE_LIMIT_*, DISCORD_MAX_MESSAGE_LENGTH, DISCORD_MIN_MESSAGE_INTERVAL_SECONDS.",
-    "rag_ingest": "Ingest channel messages into LanceDB for RAG. discord(operation='rag_ingest', channel_id='...', limit=50, guild_name='?', channel_name='?', table_name='discord_messages').",
-    "rag_query": "Semantic search over ingested Discord. discord(operation='rag_query', query_text='...', top_k=10, table_name='discord_messages').",
+    "safety": (
+        "Rate limits: messages/min, per-channel/min, channels/min, invites/min, "
+        "min interval, max message length. Env: DISCORD_RATE_LIMIT_*, "
+        "DISCORD_MAX_MESSAGE_LENGTH, DISCORD_MIN_MESSAGE_INTERVAL_SECONDS."
+    ),
+    "rag_ingest": (
+        "Ingest channel messages into LanceDB for RAG. "
+        "discord(operation='rag_ingest', channel_id='...', limit=50, "
+        "guild_name='?', channel_name='?', table_name='discord_messages')."
+    ),
+    "rag_query": (
+        "Semantic search over ingested Discord. "
+        "discord(operation='rag_query', query_text='...', top_k=10, "
+        "table_name='discord_messages')."
+    ),
 }
 
 
@@ -124,7 +156,7 @@ if bridge_urls:
                 mcp.add_provider(create_proxy(url))
                 _bridge_proxies.append(url)
             except Exception:
-                pass
+                logger.warning("Failed to add MCP bridge proxy: %s", url, exc_info=True)
 
 mcp.tool()(discord_tool)
 mcp.tool()(discord_help)
@@ -137,10 +169,13 @@ def discord_quick_start() -> str:
     return """You are helping set up the Discord MCP server.
 
 1. Create a bot at https://discord.com/developers/applications. Copy the bot token.
-2. Set DISCORD_TOKEN in environment or .env. Invite the bot to your server (OAuth2 URL Generator, scope: bot).
+2. Set DISCORD_TOKEN in environment or .env. Invite the bot to your server
+   (OAuth2 URL Generator, scope: bot).
 3. Start server: uv run python -m discord_mcp.server --mode dual --port 10756.
-4. MCP HTTP endpoint: http://localhost:10756/mcp (streamable HTTP). Dashboard: http://localhost:10757.
-5. Use discord(operation='list_guilds') or discord_agentic_workflow(goal='...'). For local agentic sampling, run Ollama or set DISCORD_SAMPLING_USE_CLIENT_LLM=1."""
+4. MCP HTTP endpoint: http://localhost:10756/mcp (streamable HTTP).
+   Dashboard: http://localhost:10757.
+5. Use discord(operation='list_guilds') or discord_agentic_workflow(goal='...').
+   For local agentic sampling, run Ollama or set DISCORD_SAMPLING_USE_CLIENT_LLM=1."""
 
 
 @mcp.prompt
@@ -171,7 +206,8 @@ def discord_rag_workflow() -> str:
     return """Use LanceDB-backed semantic search over Discord history:
 
 1. Pick a text channel ID (from list_channels).
-2. discord(operation='rag_ingest', channel_id='...', limit=50, guild_name='?', channel_name='?', table_name='discord_messages').
+2. discord(operation='rag_ingest', channel_id='...', limit=50,
+   guild_name='?', channel_name='?', table_name='discord_messages').
 3. discord(operation='rag_query', query_text='...', top_k=10, table_name='discord_messages').
 4. Cite message IDs and channels when summarizing results."""
 
@@ -192,7 +228,7 @@ Warn users that public invite links are sensitive."""
 def discord_capabilities_resource() -> str:
     """Machine-readable capability summary for clients."""
     return (
-        "Discord MCP capabilities (FastMCP 3.1). Tools: discord (portmanteau REST), discord_help, "
+        "Discord MCP capabilities (FastMCP 3.2). Tools: discord (portmanteau REST), discord_help, "
         "discord_agentic_workflow (sampling). Sampling: local OpenAI-compatible via DISCORD_SAMPLING_* "
         "or client LLM when DISCORD_SAMPLING_USE_CLIENT_LLM=1. RAG: LanceDB rag_ingest/rag_query. "
         "Skills: skill://<skill>/SKILL.md from bundled skills/. HTTP MCP mount: /mcp"
@@ -202,7 +238,7 @@ def discord_capabilities_resource() -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Discord MCP REST + MCP mount starting")
-    _state["token_set"] = bool(_resolve_discord_token())
+    _state.token_set = bool(_resolve_discord_token())
     yield
     logger.info("Discord MCP shutting down")
 
@@ -229,7 +265,7 @@ async def health():
 async def meta():
     return {
         "service": "discord-mcp",
-        "fastmcp": "3.1",
+        "fastmcp": "3.2",
         "mcp_transport": "streamable-http",
         "mcp_path": "/mcp",
         "tools": ["discord", "discord_help", "discord_agentic_workflow"],
@@ -325,11 +361,80 @@ class RagQueryBody(BaseModel):
     table_name: str = "discord_messages"
 
 
+class AgenticBody(BaseModel):
+    goal: str
+
+
+@app.post("/api/v1/agentic")
+async def api_agentic(body: AgenticBody = Body(...)):
+    """REST wrapper around discord_tool operations.
+    Accepts a natural-language goal and returns tool guidance."""
+    ops = [
+        "list_guilds",
+        "list_channels",
+        "send_message",
+        "get_messages",
+        "get_guild_stats",
+        "list_active_threads",
+        "create_channel",
+        "create_invite",
+        "list_invites",
+        "revoke_invite",
+        "list_members",
+        "get_member",
+    ]
+    return {
+        "success": True,
+        "goal": body.goal,
+        "available_operations": ops,
+        "message": (
+            "Use discord(operation='...') with the appropriate parameters. "
+            "For local LLM sampling, start Ollama and set DISCORD_SAMPLING_* env vars."
+        ),
+    }
+
+
+@app.get("/api/v1/providers")
+async def api_providers():
+    """Discover available LLM providers for sampling."""
+    import httpx
+
+    status = sampling_handler.status()
+    ollama_available = False
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as c:
+            r = await c.get("http://127.0.0.1:11434/api/tags")
+            if r.status_code == 200:
+                ollama_available = True
+    except Exception:
+        logger.debug("Ollama not reachable at 127.0.0.1:11434")
+
+    return {
+        "sampling": status,
+        "ollama_running": ollama_available,
+        "providers": [
+            {
+                "name": "Ollama (Local)",
+                "type": "ollama",
+                "available": ollama_available,
+                "default_url": "http://127.0.0.1:11434/v1",
+                "env_base_url": "DISCORD_SAMPLING_BASE_URL",
+                "env_model": "DISCORD_SAMPLING_MODEL",
+                "env_api_key": "DISCORD_SAMPLING_API_KEY",
+            },
+            {
+                "name": "Client LLM",
+                "type": "client",
+                "available": bool(os.getenv("DISCORD_SAMPLING_USE_CLIENT_LLM")),
+                "env_flag": "DISCORD_SAMPLING_USE_CLIENT_LLM",
+            },
+        ],
+    }
+
+
 @app.get("/api/v1/channels/{channel_id}/messages")
 async def api_channel_messages(channel_id: str, limit: int = 50):
-    out = await discord_tool(
-        ctx=None, operation="get_messages", channel_id=channel_id, limit=limit
-    )
+    out = await discord_tool(ctx=None, operation="get_messages", channel_id=channel_id, limit=limit)
     if not out.get("success"):
         raise HTTPException(status_code=502, detail=out.get("error", "Messages unavailable"))
     return out
@@ -337,9 +442,7 @@ async def api_channel_messages(channel_id: str, limit: int = 50):
 
 @app.get("/api/v1/channels/{channel_id}/threads")
 async def api_channel_threads(channel_id: str):
-    out = await discord_tool(
-        ctx=None, operation="list_active_threads", channel_id=channel_id
-    )
+    out = await discord_tool(ctx=None, operation="list_active_threads", channel_id=channel_id)
     if not out.get("success"):
         raise HTTPException(status_code=502, detail=out.get("error", "Threads unavailable"))
     return out
@@ -347,9 +450,7 @@ async def api_channel_threads(channel_id: str):
 
 @app.post("/api/v1/channels/{channel_id}/messages")
 async def api_send_message(channel_id: str, body: SendMessageBody = Body(...)):
-    out = await discord_tool(
-        ctx=None, operation="send_message", channel_id=channel_id, content=body.content
-    )
+    out = await discord_tool(ctx=None, operation="send_message", channel_id=channel_id, content=body.content)
     if not out.get("success"):
         status = 429 if out.get("rate_limited") else 502
         raise HTTPException(status_code=status, detail=out.get("error", "Send failed"))

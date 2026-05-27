@@ -6,6 +6,29 @@ set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 default:
     @pwsh.exe -NoProfile -ExecutionPolicy Bypass -File ../mcp-central-docs/scripts/just-dashboard.ps1 -Path .
 
+# ── Setup ─────────────────────────────────────────────────────────────────────
+
+# Install all dependencies (Python + webapp)
+bootstrap:
+    Set-Location '{{justfile_directory()}}'
+    uv sync
+    Set-Location '{{justfile_directory()}}\webapp'
+    npm install
+
+# ── Serve ─────────────────────────────────────────────────────────────────────
+
+# Start the full stack (backend + frontend) via start.ps1
+serve:
+    @pwsh.exe -NoProfile -ExecutionPolicy Bypass -File '{{justfile_directory()}}\start.ps1'
+
+# Start the full stack (alias for serve)
+dev: serve
+
+# Start the frontend only (Vite dev server)
+web:
+    Set-Location '{{justfile_directory()}}\webapp'
+    npm run dev
+
 # ── Quality ───────────────────────────────────────────────────────────────────
 
 # Execute Ruff SOTA v13.1 linting
@@ -34,3 +57,23 @@ check-sec:
 audit-deps:
     Set-Location '{{justfile_directory()}}'
     uv run safety check
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+
+# Run e2e Playwright tests
+e2e:
+    pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File "D:\Dev\repos\mcp-central-docs\scripts\playwright-audit.ps1" -RepoPath "{{justfile_directory()}}"
+
+# ── Native ─────────────────────────────────────────────────────────────────────
+
+# Build Tauri native desktop app (release — full pipeline)
+build-native:
+    Set-Location '{{justfile_directory()}}\native'
+    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+    .\build.ps1
+
+# Build Tauri native app (debug, skip PyInstaller)
+build-native-debug:
+    Set-Location '{{justfile_directory()}}\native'
+    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+    npx @tauri-apps/cli build --debug

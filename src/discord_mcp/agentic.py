@@ -1,8 +1,12 @@
-"""Agentic workflow and sampling for Discord (FastMCP 3.1 / SEP-1577)."""
+"""Agentic workflow and sampling for Discord (FastMCP 3.2 / SEP-1577)."""
+
+from __future__ import annotations
+
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastmcp import Context
+from pydantic import Field
 
 from .portmanteau import discord_tool
 
@@ -44,14 +48,10 @@ async def _get_guild_stats(guild_id: str) -> str:
     out = await discord_tool(ctx=None, operation="get_guild_stats", guild_id=guild_id)
     if not out.get("success"):
         return str(out.get("error", out))
-    return (
-        f"Guild: {out.get('name')} | members: {out.get('member_count')} | online: {out.get('online_count')}"
-    )
+    return f"Guild: {out.get('name')} | members: {out.get('member_count')} | online: {out.get('online_count')}"
 
 
-async def _create_channel(
-    guild_id: str, name: str, channel_type: int = 0, parent_id: str | None = None
-) -> str:
+async def _create_channel(guild_id: str, name: str, channel_type: int = 0, parent_id: str | None = None) -> str:
     out = await discord_tool(
         ctx=None,
         operation="create_channel",
@@ -83,7 +83,10 @@ async def _list_invites(guild_id: str) -> str:
     if not out.get("success"):
         return str(out.get("error", out))
     invs = out.get("invites", [])
-    return "\n".join([f"- {i.get('code')} uses={i.get('uses')}/{i.get('max_uses')} {i.get('url')}" for i in invs]) or "No invites"
+    return (
+        "\n".join([f"- {i.get('code')} uses={i.get('uses')}/{i.get('max_uses')} {i.get('url')}" for i in invs])
+        or "No invites"
+    )
 
 
 async def _revoke_invite(invite_code: str) -> str:
@@ -105,22 +108,24 @@ async def _get_member(guild_id: str, user_id: str) -> str:
     out = await discord_tool(ctx=None, operation="get_member", guild_id=guild_id, user_id=user_id)
     if not out.get("success"):
         return str(out.get("error", out))
-    return f"Member: {out.get('username')} nick={out.get('nick')} roles={out.get('roles')} joined={out.get('joined_at')}"
+    return (
+        f"Member: {out.get('username')} nick={out.get('nick')} roles={out.get('roles')} joined={out.get('joined_at')}"
+    )
 
 
-async def discord_agentic_workflow(goal: str, ctx: Context) -> dict[str, Any]:
+async def discord_agentic_workflow(
+    goal: Annotated[str, Field(description="Natural-language objective (e.g. list channels then summarize activity).")],
+    ctx: Context,
+) -> dict[str, Any]:
     """DISCORD_AGENTIC_WORKFLOW — Achieve a high-level Discord goal via planning and sampling (SEP-1577).
 
     PORTMANTEAU PATTERN RATIONALE: Single entry for multi-step Discord tasks without exposing
     dozens of atomic tools to the host; the sampler loops over typed tool functions.
 
-    Args:
-        goal: Natural-language objective (e.g. list channels then summarize activity).
-        ctx: MCP context for sampling.
-
-    Returns:
-        Dict with success, message (summary), optional recommendations.
+    ## Return Format
+    {"success": bool, "message": str (summary), "recommendations": list[str]}
     """
+
     async def list_guilds() -> str:
         return await _list_guilds()
 
@@ -136,9 +141,7 @@ async def discord_agentic_workflow(goal: str, ctx: Context) -> dict[str, Any]:
     async def get_guild_stats(guild_id: str) -> str:
         return await _get_guild_stats(guild_id)
 
-    async def create_channel(
-        guild_id: str, name: str, channel_type: int = 0, parent_id: str | None = None
-    ) -> str:
+    async def create_channel(guild_id: str, name: str, channel_type: int = 0, parent_id: str | None = None) -> str:
         return await _create_channel(guild_id, name, channel_type, parent_id)
 
     async def create_invite(channel_id: str, max_age: int = 86400, max_uses: int = 0) -> str:
@@ -162,8 +165,10 @@ async def discord_agentic_workflow(goal: str, ctx: Context) -> dict[str, Any]:
         "get_guild_stats(guild_id), create_channel(guild_id, name, channel_type=0, parent_id optional), "
         "create_invite(channel_id, max_age=86400, max_uses=0), list_invites(guild_id), revoke_invite(invite_code), "
         "list_members(guild_id, limit=100), get_member(guild_id, user_id). "
-        "Channel types: 0=text, 2=voice, 4=category. list_members/get_member need GUILD_MEMBERS intent. "
-        "Creating new servers (guilds) is not supported with bot token. Plan steps; use IDs from list_guilds/list_channels. Summarize."
+        "Channel types: 0=text, 2=voice, 4=category. "
+        "list_members/get_member need GUILD_MEMBERS intent. "
+        "Creating new servers (guilds) is not supported with bot token. "
+        "Plan steps; use IDs from list_guilds/list_channels. Summarize."
     )
     try:
         result = await ctx.sample(

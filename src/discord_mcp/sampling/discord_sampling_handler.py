@@ -1,5 +1,5 @@
 """
-Discord-MCP sampling for FastMCP 3.1 (SEP-1577).
+Discord-MCP sampling for FastMCP 3.2 (SEP-1577).
 
 Default: OpenAI-compatible **local** inference (e.g. Ollama at ``http://127.0.0.1:11434/v1``)
 with no API key on loopback / private LAN.
@@ -36,7 +36,7 @@ from mcp.types import (
 )
 
 if False:  # TYPE_CHECKING
-    from mcp.server.session import ServerSession
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -109,9 +109,7 @@ def _mcp_tools_to_openai(tools: list[Tool] | None) -> list[dict[str, Any]] | Non
                 "function": {
                     "name": t.name,
                     "description": t.description or f"MCP tool {t.name}",
-                    "parameters": (
-                        t.inputSchema if isinstance(t.inputSchema, dict) else {"type": "object"}
-                    ),
+                    "parameters": (t.inputSchema if isinstance(t.inputSchema, dict) else {"type": "object"}),
                 },
             }
         )
@@ -224,11 +222,7 @@ def _degraded_text(last_user: str, has_tools: bool) -> str:
             "DISCORD_SAMPLING_USE_CLIENT_LLM=1 for host-side sampling."
         )
     )
-    return (
-        "[Discord-MCP sampling — HTTP LLM unreachable]\n\n"
-        f"{tool_note}\n\n"
-        f"Goal context: {last_user[:2000]!s}"
-    )
+    return f"[Discord-MCP sampling — HTTP LLM unreachable]\n\n{tool_note}\n\nGoal context: {last_user[:2000]!s}"
 
 
 class DiscordSamplingHandler:

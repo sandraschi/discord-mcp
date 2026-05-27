@@ -1,17 +1,17 @@
-import { LayoutGrid, ExternalLink } from 'lucide-react'
+import { ExternalLink, LayoutGrid } from "lucide-react";
 
 const EXTERNAL = [
   {
-    title: 'Glama discovery',
-    href: 'https://glama.ai',
-    note: 'MCP server registry and manifests.',
+    title: "Glama discovery",
+    href: "https://glama.ai",
+    note: "MCP server registry and manifests.",
   },
   {
-    title: 'Discord Developer Portal',
-    href: 'https://discord.com/developers/applications',
-    note: 'Bot tokens, intents, OAuth2.',
+    title: "Discord Developer Portal",
+    href: "https://discord.com/developers/applications",
+    note: "Bot tokens, intents, OAuth2.",
   },
-]
+];
 
 export default function Apps() {
   return (
@@ -20,12 +20,16 @@ export default function Apps() {
         <div className="flex items-center gap-3">
           <LayoutGrid className="w-6 h-6 text-indigo-400" />
           <div>
-            <h2 className="text-lg font-semibold text-white">Fleet &amp; ecosystem</h2>
+            <h2 className="text-lg font-semibold text-white">
+              Fleet &amp; ecosystem
+            </h2>
             <p className="text-sm text-slate-500">
-              This repo includes <span className="font-mono text-slate-400">glama.json</span> for local
-              discovery. Central fleet standards live in your{' '}
-              <span className="font-mono text-slate-400">mcp-central-docs</span> clone (open that workspace
-              for AGENT_PROTOCOLS / WEBAPP_STANDARDS).
+              This repo includes{" "}
+              <span className="font-mono text-slate-400">glama.json</span> for
+              local discovery. Central fleet standards live in your{" "}
+              <span className="font-mono text-slate-400">mcp-central-docs</span>{" "}
+              clone (open that workspace for AGENT_PROTOCOLS /
+              WEBAPP_STANDARDS).
             </p>
           </div>
         </div>
@@ -51,5 +55,5 @@ export default function Apps() {
         </ul>
       </div>
     </div>
-  )
+  );
 }

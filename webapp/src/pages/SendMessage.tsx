@@ -1,37 +1,55 @@
-import { useState } from 'react'
-import { Send, AlertCircle, CheckCircle } from 'lucide-react'
-import { api } from '../lib/api'
+import { AlertCircle, CheckCircle, Cpu, Send } from "lucide-react";
+import { useState } from "react";
+import { api } from "../lib/api";
 
 export default function SendMessage() {
-  const [channelId, setChannelId] = useState('')
-  const [content, setContent] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [channelId, setChannelId] = useState("");
+  const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!channelId.trim() || !content.trim()) return
-    setLoading(true)
-    setErr(null)
-    setSuccess(null)
+    e.preventDefault();
+    if (!channelId.trim() || !content.trim()) return;
+    setLoading(true);
+    setErr(null);
+    setSuccess(null);
     api
       .sendMessage(channelId.trim(), content.trim())
       .then(() => {
-        setSuccess(`Message sent to channel ${channelId}.`)
-        setContent('')
+        setSuccess(`Message sent to channel ${channelId}.`);
+        setContent("");
       })
       .catch((e) => setErr(e.message))
-      .finally(() => setLoading(false))
-  }
+      .finally(() => setLoading(false));
+  };
+
+  const handleAiDraft = () => {
+    if (!channelId.trim()) return;
+    setDrafting(true);
+    setErr(null);
+    api
+      .agentic(`Compose a short friendly message to send to channel ${channelId.trim()}`)
+      .then((r) => {
+        if (r.message) setContent(r.message);
+      })
+      .catch((e) => setErr(e instanceof Error ? e.message : "Draft failed"))
+      .finally(() => setDrafting(false));
+  };
 
   return (
     <div className="space-y-6 py-4 max-w-2xl">
       <div className="flex items-center gap-4">
         <Send className="text-indigo-400 w-8 h-8" />
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Send message</h1>
-          <p className="text-slate-400 text-sm">Post to a channel (rate limited)</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Send message
+          </h1>
+          <p className="text-slate-400 text-sm">
+            Post to a channel (rate limited)
+          </p>
         </div>
       </div>
 
@@ -50,19 +68,36 @@ export default function SendMessage() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-slate-300 text-sm font-medium mb-2">Channel ID</label>
-          <input
-            type="text"
-            value={channelId}
-            onChange={(e) => setChannelId(e.target.value)}
-            placeholder="e.g. 123456789012345678"
-            className="w-full rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-3 text-slate-200 font-mono"
-            required
-          />
+          <label htmlFor="channel-id" className="block text-slate-300 text-sm font-medium mb-2">
+            Channel ID
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="channel-id"
+              type="text"
+              value={channelId}
+              onChange={(e) => setChannelId(e.target.value)}
+              placeholder="e.g. 123456789012345678"
+              className="flex-1 rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-3 text-slate-200 font-mono"
+              required
+            />
+            <button
+              type="button"
+              onClick={handleAiDraft}
+              disabled={drafting || !channelId.trim()}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-600/80 hover:bg-violet-500 disabled:opacity-50 text-white text-sm"
+            >
+              <Cpu className="w-4 h-4" />
+              {drafting ? "Drafting…" : "AI draft"}
+            </button>
+          </div>
         </div>
         <div>
-          <label className="block text-slate-300 text-sm font-medium mb-2">Content</label>
+          <label htmlFor="content" className="block text-slate-300 text-sm font-medium mb-2">
+            Content
+          </label>
           <textarea
+            id="content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Message text…"
@@ -78,9 +113,9 @@ export default function SendMessage() {
           disabled={loading}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium"
         >
-          <Send className="w-4 h-4" /> {loading ? 'Sending…' : 'Send'}
+          <Send className="w-4 h-4" /> {loading ? "Sending…" : "Send"}
         </button>
       </form>
     </div>
-  )
+  );
 }

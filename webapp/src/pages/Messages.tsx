@@ -1,77 +1,94 @@
-import { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
-import { MessageSquare, AlertCircle, Download, MessageCircle } from 'lucide-react'
-import { api, type MessagesResponse, type Thread } from '../lib/api'
-import { exportCSV, exportJSON } from '../lib/export'
-import MessageViewer, { type ViewMode } from '../components/MessageViewer'
+import {
+  AlertCircle,
+  Download,
+  MessageCircle,
+  MessageSquare,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+import MessageViewer, { type ViewMode } from "../components/MessageViewer";
+import { api, type MessagesResponse, type Thread } from "../lib/api";
+import { exportCSV, exportJSON } from "../lib/export";
 
 export default function Messages() {
-  const location = useLocation()
-  const stateChannelId = (location.state as { channelId?: string } | null)?.channelId ?? ''
-  const [channelId, setChannelId] = useState(stateChannelId)
+  const location = useLocation();
+  const stateChannelId =
+    (location.state as { channelId?: string } | null)?.channelId ?? "";
+  const [channelId, setChannelId] = useState(stateChannelId);
   useEffect(() => {
-    if (stateChannelId) setChannelId(stateChannelId)
-  }, [stateChannelId])
-  const [limit, setLimit] = useState(50)
-  const [data, setData] = useState<MessagesResponse | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [threads, setThreads] = useState<Thread[]>([])
-  const [threadsLoading, setThreadsLoading] = useState(false)
-  const [threadsOpen, setThreadsOpen] = useState(false)
+    if (stateChannelId) setChannelId(stateChannelId);
+  }, [stateChannelId]);
+  const [limit, setLimit] = useState(50);
+  const [data, setData] = useState<MessagesResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [threadsLoading, setThreadsLoading] = useState(false);
+  const [threadsOpen, setThreadsOpen] = useState(false);
 
   const load = () => {
-    if (!channelId.trim()) return
-    setLoading(true)
-    setErr(null)
+    if (!channelId.trim()) return;
+    setLoading(true);
+    setErr(null);
     api
       .getChannelMessages(channelId.trim(), limit)
       .then(setData)
       .catch((e) => setErr(e.message))
-      .finally(() => setLoading(false))
-  }
+      .finally(() => setLoading(false));
+  };
 
-  const messages = data?.messages ?? []
+  const messages = data?.messages ?? [];
 
   const loadThreads = () => {
-    if (!channelId.trim()) return
-    setThreadsLoading(true)
+    if (!channelId.trim()) return;
+    setThreadsLoading(true);
     api
       .getChannelThreads(channelId.trim())
       .then((r) => setThreads(r.threads ?? []))
       .catch(() => setThreads([]))
-      .finally(() => setThreadsLoading(false))
-  }
+      .finally(() => setThreadsLoading(false));
+  };
 
   const openThread = (threadId: string) => {
-    setChannelId(threadId)
-    setThreadsOpen(false)
-    setData(null)
-    setErr(null)
-    setLoading(true)
+    setChannelId(threadId);
+    setThreadsOpen(false);
+    setData(null);
+    setErr(null);
+    setLoading(true);
     api
       .getChannelMessages(threadId, limit)
       .then(setData)
       .catch((e) => setErr(e.message))
-      .finally(() => setLoading(false))
-  }
+      .finally(() => setLoading(false));
+  };
 
   const handleExportCSV = () => {
-    const rows = messages.map((m) => ({ id: m.id, author: m.author, content: m.content }))
-    exportCSV(rows, `discord-messages-${channelId}.csv`)
-  }
+    const rows = messages.map((m) => ({
+      id: m.id,
+      author: m.author,
+      content: m.content,
+    }));
+    exportCSV(rows, `discord-messages-${channelId}.csv`);
+  };
   const handleExportJSON = () => {
-    exportJSON({ channel_id: channelId, messages, count: messages.length }, `discord-messages-${channelId}.json`)
-  }
+    exportJSON(
+      { channel_id: channelId, messages, count: messages.length },
+      `discord-messages-${channelId}.json`,
+    );
+  };
 
   return (
     <div className="space-y-6 py-4 max-w-5xl">
       <div className="flex items-center gap-4">
         <MessageSquare className="text-indigo-400 w-8 h-8" />
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Messages</h1>
-          <p className="text-slate-400 text-sm">Read recent messages from a channel (paste channel ID)</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Messages
+          </h1>
+          <p className="text-slate-400 text-sm">
+            Read recent messages from a channel (paste channel ID)
+          </p>
         </div>
       </div>
 
@@ -105,11 +122,14 @@ export default function Messages() {
           disabled={!channelId.trim() || loading}
           className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium"
         >
-          {loading ? 'Loading…' : 'Load'}
+          {loading ? "Loading…" : "Load"}
         </button>
         <button
           type="button"
-          onClick={() => { setThreadsOpen(!threadsOpen); if (!threadsOpen) loadThreads(); }}
+          onClick={() => {
+            setThreadsOpen(!threadsOpen);
+            if (!threadsOpen) loadThreads();
+          }}
           disabled={!channelId.trim()}
           className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-600 disabled:opacity-50 text-slate-200 text-sm"
         >
@@ -139,19 +159,23 @@ export default function Messages() {
       {threadsOpen && channelId.trim() && (
         <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 overflow-hidden">
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
-            <span className="text-slate-400 text-sm">Active threads in channel</span>
+            <span className="text-slate-400 text-sm">
+              Active threads in channel
+            </span>
             <button
               type="button"
               onClick={loadThreads}
               disabled={threadsLoading}
               className="text-indigo-400 hover:underline text-sm disabled:opacity-50"
             >
-              {threadsLoading ? 'Loading…' : 'Refresh'}
+              {threadsLoading ? "Loading…" : "Refresh"}
             </button>
           </div>
           <ul className="p-4 max-h-48 overflow-y-auto space-y-2">
             {threads.length === 0 && !threadsLoading && (
-              <li className="text-slate-500 text-sm">No active threads or not a text channel.</li>
+              <li className="text-slate-500 text-sm">
+                No active threads or not a text channel.
+              </li>
             )}
             {threads.map((t) => (
               <li key={t.id}>
@@ -186,5 +210,5 @@ export default function Messages() {
         </div>
       )}
     </div>
-  )
+  );
 }

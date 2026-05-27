@@ -1,19 +1,21 @@
-"""Portmanteau tool discord(operation=...) for Discord (FastMCP 3.1). Uses Discord REST API."""
+"""Portmanteau tool discord(operation=...) for Discord (FastMCP 3.2). Uses Discord REST API."""
+
 import asyncio
 import logging
 import os
-from fastmcp import Context
+
 import httpx
+from fastmcp import Context
 
 from .rag import ingest_messages, rag_query_async
 from .rate_limit import (
-    check_send_message,
-    record_send_message,
     check_create_channel,
-    record_create_channel,
     check_create_invite,
-    record_create_invite,
+    check_send_message,
     get_rate_limit_config,
+    record_create_channel,
+    record_create_invite,
+    record_send_message,
 )
 
 logger = logging.getLogger("discord-mcp.portmanteau")
@@ -49,7 +51,7 @@ def _retry_after_seconds(r: httpx.Response) -> float:
         if isinstance(j, dict) and "retry_after" in j:
             return float(j["retry_after"])
     except Exception:
-        pass
+        logger.debug("Could not parse retry-after from 429 response body")
     return 1.0
 
 
@@ -81,7 +83,10 @@ def _discord_api_error(r: httpx.Response) -> dict:
     if r.status_code == 401:
         out["auth_error"] = True
         out["recovery_options"] = [
-            "Verify DISCORD_TOKEN (or DISCORD_BOT_TOKEN fallback) is a current bot token from Discord Developer Portal.",
+            (
+                "Verify DISCORD_TOKEN (or DISCORD_BOT_TOKEN fallback) is a current "
+                "bot token from Discord Developer Portal."
+            ),
             "Do not include the 'Bot ' prefix in env values; the server adds it automatically.",
             "Restart the server after updating env vars so changes are applied.",
         ]
@@ -96,7 +101,7 @@ def _discord_api_error(r: httpx.Response) -> dict:
                 if j.get("global") is True:
                     out["global_rate_limit"] = True
         except Exception:
-            pass
+            logger.debug("Could not parse error body for 429 details")
     return out
 
 
@@ -252,16 +257,11 @@ async def _list_guilds() -> dict:
 
 async def _list_channels(guild_id: str) -> dict:
     async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
-        r = await _discord_request(
-            client, "GET", f"{DISCORD_API}/guilds/{guild_id}/channels", headers=_headers()
-        )
+        r = await _discord_request(client, "GET", f"{DISCORD_API}/guilds/{guild_id}/channels", headers=_headers())
         if r.status_code != 200:
             return _discord_api_error(r)
         data = r.json()
-        channels = [
-            {"id": c["id"], "name": c.get("name", ""), "type": c.get("type", 0)}
-            for c in data
-        ]
+        channels = [{"id": c["id"], "name": c.get("name", ""), "type": c.get("type", 0)} for c in data]
         return {"success": True, "channels": channels, "count": len(channels)}
 
 
@@ -301,11 +301,13 @@ def _serialize_message(m: dict) -> dict:
         attachments.append({"url": a.get("url"), "filename": a.get("filename")})
     embeds = []
     for e in m.get("embeds") or []:
-        embeds.append({
-            "title": (e.get("title") or "")[:200],
-            "url": e.get("url"),
-            "description": (e.get("description") or "")[:500],
-        })
+        embeds.append(
+            {
+                "title": (e.get("title") or "")[:200],
+                "url": e.get("url"),
+                "description": (e.get("description") or "")[:500],
+            }
+        )
     return {
         "id": m.get("id"),
         "author": author_name,
@@ -385,9 +387,7 @@ async def _get_guild_stats(guild_id: str) -> dict:
         }
 
 
-async def _create_channel(
-    guild_id: str, name: str, channel_type: int = 0, parent_id: str | None = None
-) -> dict:
+async def _create_channel(guild_id: str, name: str, channel_type: int = 0, parent_id: str | None = None) -> dict:
     payload: dict = {"name": name[:100], "type": channel_type}
     if parent_id:
         payload["parent_id"] = parent_id
@@ -428,7 +428,11 @@ async def _create_guild(name: str) -> dict:
         if r.status_code == 403:
             return {
                 "success": False,
-                "error": f"Discord API 403: {err}. Creating servers (guilds) requires user OAuth2, not bot token. User must create the server in the Discord client, then invite the bot.",
+                "error": (
+                    f"Discord API 403: {err}. Creating servers (guilds) requires "
+                    "user OAuth2, not bot token. User must create the server in "
+                    "the Discord client, then invite the bot."
+                ),
             }
         return _discord_api_error(r)
 
@@ -461,9 +465,7 @@ async def _create_invite(channel_id: str, max_age: int = 86400, max_uses: int = 
 
 async def _list_invites(guild_id: str) -> dict:
     async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
-        r = await _discord_request(
-            client, "GET", f"{DISCORD_API}/guilds/{guild_id}/invites", headers=_headers()
-        )
+        r = await _discord_request(client, "GET", f"{DISCORD_API}/guilds/{guild_id}/invites", headers=_headers())
         if r.status_code != 200:
             return _discord_api_error(r)
         data = r.json()
@@ -482,9 +484,7 @@ async def _list_invites(guild_id: str) -> dict:
 
 async def _revoke_invite(invite_code: str) -> dict:
     async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
-        r = await _discord_request(
-            client, "DELETE", f"{DISCORD_API}/invites/{invite_code}", headers=_headers()
-        )
+        r = await _discord_request(client, "DELETE", f"{DISCORD_API}/invites/{invite_code}", headers=_headers())
         if r.status_code not in (200, 204):
             return _discord_api_error(r)
         return {"success": True, "code": invite_code, "revoked": True}

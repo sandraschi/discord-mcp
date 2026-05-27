@@ -1,26 +1,29 @@
-import { useState } from 'react'
-import { Database, AlertCircle, Download } from 'lucide-react'
-import { api, type RagHit } from '../lib/api'
-import { exportJSON } from '../lib/export'
+import { AlertCircle, Database, Download } from "lucide-react";
+import { useState } from "react";
+import { api, type RagHit } from "../lib/api";
+import { exportJSON } from "../lib/export";
 
 export default function Rag() {
-  const [channelId, setChannelId] = useState('')
-  const [guildName, setGuildName] = useState('')
-  const [channelName, setChannelName] = useState('')
-  const [limit, setLimit] = useState(50)
-  const [ingestLoading, setIngestLoading] = useState(false)
-  const [ingestResult, setIngestResult] = useState<{ ingested: number; err?: string } | null>(null)
+  const [channelId, setChannelId] = useState("");
+  const [guildName, setGuildName] = useState("");
+  const [channelName, setChannelName] = useState("");
+  const [limit, setLimit] = useState(50);
+  const [ingestLoading, setIngestLoading] = useState(false);
+  const [ingestResult, setIngestResult] = useState<{
+    ingested: number;
+    err?: string;
+  } | null>(null);
 
-  const [queryText, setQueryText] = useState('')
-  const [topK, setTopK] = useState(10)
-  const [queryLoading, setQueryLoading] = useState(false)
-  const [hits, setHits] = useState<RagHit[]>([])
-  const [queryErr, setQueryErr] = useState<string | null>(null)
+  const [queryText, setQueryText] = useState("");
+  const [topK, setTopK] = useState(10);
+  const [queryLoading, setQueryLoading] = useState(false);
+  const [hits, setHits] = useState<RagHit[]>([]);
+  const [queryErr, setQueryErr] = useState<string | null>(null);
 
   const handleIngest = () => {
-    if (!channelId.trim()) return
-    setIngestLoading(true)
-    setIngestResult(null)
+    if (!channelId.trim()) return;
+    setIngestLoading(true);
+    setIngestResult(null);
     api
       .ragIngest({
         channel_id: channelId.trim(),
@@ -30,31 +33,36 @@ export default function Rag() {
       })
       .then((r) => setIngestResult({ ingested: r.ingested ?? 0 }))
       .catch((e) => setIngestResult({ ingested: 0, err: e.message }))
-      .finally(() => setIngestLoading(false))
-  }
+      .finally(() => setIngestLoading(false));
+  };
 
   const handleQuery = () => {
-    if (!queryText.trim()) return
-    setQueryLoading(true)
-    setQueryErr(null)
-    setHits([])
+    if (!queryText.trim()) return;
+    setQueryLoading(true);
+    setQueryErr(null);
+    setHits([]);
     api
       .ragQuery({ query_text: queryText.trim(), top_k: topK })
       .then((r) => setHits(r.hits ?? []))
       .catch((e) => setQueryErr(e.message))
-      .finally(() => setQueryLoading(false))
-  }
+      .finally(() => setQueryLoading(false));
+  };
 
   const exportHits = () => {
-    exportJSON({ query: queryText, top_k: topK, hits }, 'discord-rag-hits.json')
-  }
+    exportJSON(
+      { query: queryText, top_k: topK, hits },
+      "discord-rag-hits.json",
+    );
+  };
 
   return (
     <div className="space-y-8 py-4 max-w-5xl">
       <div className="flex items-center gap-4">
         <Database className="text-indigo-400 w-8 h-8" />
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">RAG (LanceDB)</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            RAG (LanceDB)
+          </h1>
           <p className="text-slate-400 text-sm">
             Ingest channel messages into LanceDB, then semantic search.
           </p>
@@ -65,7 +73,9 @@ export default function Rag() {
         <h2 className="text-lg font-semibold text-white">Ingest channel</h2>
         <div className="flex flex-wrap gap-4 items-end">
           <div>
-            <label className="block text-slate-500 text-xs mb-1">Channel ID</label>
+            <label className="block text-slate-500 text-xs mb-1">
+              Channel ID
+            </label>
             <input
               type="text"
               placeholder="Channel ID"
@@ -75,7 +85,9 @@ export default function Rag() {
             />
           </div>
           <div>
-            <label className="block text-slate-500 text-xs mb-1">Guild name (optional)</label>
+            <label className="block text-slate-500 text-xs mb-1">
+              Guild name (optional)
+            </label>
             <input
               type="text"
               placeholder="Server name"
@@ -85,7 +97,9 @@ export default function Rag() {
             />
           </div>
           <div>
-            <label className="block text-slate-500 text-xs mb-1">Channel name (optional)</label>
+            <label className="block text-slate-500 text-xs mb-1">
+              Channel name (optional)
+            </label>
             <input
               type="text"
               placeholder="Channel name"
@@ -112,15 +126,15 @@ export default function Rag() {
             disabled={!channelId.trim() || ingestLoading}
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium"
           >
-            {ingestLoading ? 'Ingesting…' : 'Ingest'}
+            {ingestLoading ? "Ingesting…" : "Ingest"}
           </button>
         </div>
         {ingestResult !== null && (
           <div
             className={
               ingestResult.err
-                ? 'flex items-center gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-200 text-sm'
-                : 'text-slate-400 text-sm'
+                ? "flex items-center gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-200 text-sm"
+                : "text-slate-400 text-sm"
             }
           >
             {ingestResult.err ? (
@@ -145,7 +159,7 @@ export default function Rag() {
               placeholder="Search ingested Discord messages…"
               value={queryText}
               onChange={(e) => setQueryText(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleQuery()}
+              onKeyDown={(e) => e.key === "Enter" && handleQuery()}
               className="w-full rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200"
             />
           </div>
@@ -168,7 +182,7 @@ export default function Rag() {
             disabled={!queryText.trim() || queryLoading}
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium"
           >
-            {queryLoading ? 'Searching…' : 'Search'}
+            {queryLoading ? "Searching…" : "Search"}
           </button>
           {hits.length > 0 && (
             <button
@@ -199,12 +213,14 @@ export default function Rag() {
                   {h.author && <span>{h.author}</span>}
                   {h.timestamp && <span>{h.timestamp}</span>}
                 </div>
-                <p className="text-slate-200 text-sm break-words">{h.text ?? ''}</p>
+                <p className="text-slate-200 text-sm break-words">
+                  {h.text ?? ""}
+                </p>
               </li>
             ))}
           </ul>
         )}
       </section>
     </div>
-  )
+  );
 }

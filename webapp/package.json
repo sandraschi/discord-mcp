@@ -20,6 +20,8 @@
     "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.12",
+    "@playwright/test": "^1.60.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.3",
@@ -27,7 +29,6 @@
     "postcss": "^8.5.8",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.6.2",
-    "vite": "^5.4.10",
-    "@biomejs/biome": "^2.4.12"
+    "vite": "^5.4.10"
   }
 }

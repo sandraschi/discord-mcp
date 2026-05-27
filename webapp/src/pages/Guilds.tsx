@@ -1,26 +1,31 @@
-import { useEffect, useState } from 'react'
-import { Server, AlertCircle, Download, Star } from 'lucide-react'
-import { api, type GuildsResponse } from '../lib/api'
-import { exportCSV, exportJSON } from '../lib/export'
-import { getFavorites, addGuild, removeGuild } from '../lib/favorites'
+import { AlertCircle, Download, Server, Star } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api, type GuildsResponse } from "../lib/api";
+import { exportCSV, exportJSON } from "../lib/export";
+import { addGuild, getFavorites, removeGuild } from "../lib/favorites";
 
 export default function Guilds() {
-  const [data, setData] = useState<GuildsResponse | null>(null)
-  const [err, setErr] = useState<string | null>(null)
-  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => new Set(getFavorites().guilds.map((g) => g.id)))
+  const [data, setData] = useState<GuildsResponse | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(
+    () => new Set(getFavorites().guilds.map((g) => g.id)),
+  );
 
   useEffect(() => {
-    api.getGuilds().then(setData).catch((e) => setErr(e.message))
-  }, [])
+    api
+      .getGuilds()
+      .then(setData)
+      .catch((e) => setErr(e.message));
+  }, []);
 
   const toggleFavorite = (g: { id: string; name: string }) => {
     if (favoriteIds.has(g.id)) {
-      removeGuild(g.id)
+      removeGuild(g.id);
     } else {
-      addGuild({ id: g.id, name: g.name })
+      addGuild({ id: g.id, name: g.name });
     }
-    setFavoriteIds(new Set(getFavorites().guilds.map((x) => x.id)))
-  }
+    setFavoriteIds(new Set(getFavorites().guilds.map((x) => x.id)));
+  };
 
   if (err) {
     return (
@@ -31,20 +36,20 @@ export default function Guilds() {
           <p className="text-sm">{err}</p>
         </div>
       </div>
-    )
+    );
   }
 
-  const guilds = data?.guilds ?? []
+  const guilds = data?.guilds ?? [];
 
   const handleExportCSV = () => {
     exportCSV(
       guilds.map((g) => ({ id: g.id, name: g.name, owner: g.owner ?? false })),
-      'discord-guilds.csv'
-    )
-  }
+      "discord-guilds.csv",
+    );
+  };
   const handleExportJSON = () => {
-    exportJSON({ guilds, count: guilds.length }, 'discord-guilds.json')
-  }
+    exportJSON({ guilds, count: guilds.length }, "discord-guilds.json");
+  };
 
   return (
     <div className="space-y-6 py-4 max-w-5xl">
@@ -52,8 +57,12 @@ export default function Guilds() {
         <div className="flex items-center gap-4">
           <Server className="text-indigo-400 w-8 h-8" />
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Guilds</h1>
-            <p className="text-slate-400 text-sm">Servers the bot is in ({guilds.length})</p>
+            <h1 className="text-2xl font-bold text-white tracking-tight">
+              Guilds
+            </h1>
+            <p className="text-slate-400 text-sm">
+              Servers the bot is in ({guilds.length})
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -85,28 +94,37 @@ export default function Guilds() {
           </thead>
           <tbody>
             {guilds.map((g) => (
-              <tr key={g.id} className="border-b border-white/5 hover:bg-white/5">
+              <tr
+                key={g.id}
+                className="border-b border-white/5 hover:bg-white/5"
+              >
                 <td className="p-4">
                   <button
                     type="button"
                     onClick={() => toggleFavorite(g)}
                     className="p-1.5 rounded-lg text-slate-500 hover:bg-white/10 hover:text-amber-400"
-                    title={favoriteIds.has(g.id) ? 'Remove from favorites' : 'Add to favorites'}
+                    title={
+                      favoriteIds.has(g.id)
+                        ? "Remove from favorites"
+                        : "Add to favorites"
+                    }
                   >
                     <Star
                       className="w-4 h-4"
-                      fill={favoriteIds.has(g.id) ? 'currentColor' : 'none'}
+                      fill={favoriteIds.has(g.id) ? "currentColor" : "none"}
                     />
                   </button>
                 </td>
                 <td className="p-4 font-medium text-slate-200">{g.name}</td>
                 <td className="p-4 text-slate-400 font-mono text-sm">{g.id}</td>
-                <td className="p-4">{g.owner ? <span className="text-amber-400">Yes</span> : '—'}</td>
+                <td className="p-4">
+                  {g.owner ? <span className="text-amber-400">Yes</span> : "—"}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
     </div>
-  )
+  );
 }

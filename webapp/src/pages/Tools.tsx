@@ -1,17 +1,17 @@
-import { useEffect, useState } from 'react'
-import { Terminal, AlertCircle } from 'lucide-react'
-import { api, type Meta } from '@/lib/api'
+import { AlertCircle, Terminal } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api, type Meta } from "@/lib/api";
 
 export default function Tools() {
-  const [meta, setMeta] = useState<Meta | null>(null)
-  const [err, setErr] = useState<string | null>(null)
+  const [meta, setMeta] = useState<Meta | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     api
       .getMeta()
       .then(setMeta)
-      .catch((e) => setErr(e instanceof Error ? e.message : 'Failed to load'))
-  }, [])
+      .catch((e) => setErr(e instanceof Error ? e.message : "Failed to load"));
+  }, []);
 
   return (
     <div className="space-y-6 pb-8 max-w-4xl">
@@ -28,7 +28,8 @@ export default function Tools() {
           <div>
             <h2 className="text-lg font-semibold text-white">MCP tools</h2>
             <p className="text-sm text-slate-500">
-              Registered on the FastMCP server (stdio or HTTP). Inspect schemas in Cursor or your client.
+              Registered on the FastMCP server (stdio or HTTP). Inspect schemas
+              in Cursor or your client.
             </p>
           </div>
         </div>
@@ -67,8 +68,11 @@ export default function Tools() {
       </div>
 
       <p className="text-xs text-slate-600">
-        HTTP MCP URL: <span className="font-mono text-slate-500">http://localhost:10756/mcp</span>
+        HTTP MCP URL:{" "}
+        <span className="font-mono text-slate-500">
+          http://localhost:10756/mcp
+        </span>
       </p>
     </div>
-  )
+  );
 }

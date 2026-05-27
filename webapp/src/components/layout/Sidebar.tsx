@@ -1,46 +1,53 @@
-import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard,
-  Server,
-  Hash,
-  Link2,
-  Users,
-  MessageSquare,
-  Send,
-  Star,
-  Search,
   BarChart3,
-  Settings,
-  HelpCircle,
-  MessageCircle,
+  BookMarked,
   ChevronLeft,
   ChevronRight,
   Database,
-  Terminal,
-  BookMarked,
+  Hash,
+  HelpCircle,
+  LayoutDashboard,
   LayoutGrid,
-} from 'lucide-react'
+  Link2,
+  MessageCircle,
+  MessageSquare,
+  Search,
+  Send,
+  Server,
+  Settings,
+  Star,
+  Terminal,
+  Users,
+} from "lucide-react";
+import { NavLink } from "react-router-dom";
 
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/guilds', label: 'Guilds', icon: Server },
-  { path: '/channels', label: 'Channels', icon: Hash },
-  { path: '/invites', label: 'Invites', icon: Link2 },
-  { path: '/members', label: 'Members', icon: Users },
-  { path: '/messages', label: 'Messages', icon: MessageSquare },
-  { path: '/send', label: 'Send message', icon: Send },
-  { path: '/favorites', label: 'Favorites', icon: Star },
-  { path: '/trawl', label: 'Trawl', icon: Search },
-  { path: '/rag', label: 'RAG (LanceDB)', icon: Database },
-  { path: '/stats', label: 'Statistics', icon: BarChart3 },
-  { path: '/tools', label: 'Tools', icon: Terminal },
-  { path: '/skills', label: 'Skills', icon: BookMarked },
-  { path: '/apps', label: 'Apps', icon: LayoutGrid },
-  { path: '/settings', label: 'Settings', icon: Settings },
-  { path: '/help', label: 'Help', icon: HelpCircle },
-]
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/chat", label: "Agentic Chat", icon: MessageCircle },
+  { path: "/guilds", label: "Guilds", icon: Server },
+  { path: "/channels", label: "Channels", icon: Hash },
+  { path: "/invites", label: "Invites", icon: Link2 },
+  { path: "/members", label: "Members", icon: Users },
+  { path: "/messages", label: "Messages", icon: MessageSquare },
+  { path: "/send", label: "Send message", icon: Send },
+  { path: "/favorites", label: "Favorites", icon: Star },
+  { path: "/trawl", label: "Trawl", icon: Search },
+  { path: "/rag", label: "RAG (LanceDB)", icon: Database },
+  { path: "/stats", label: "Statistics", icon: BarChart3 },
+  { path: "/tools", label: "Tools", icon: Terminal },
+  { path: "/skills", label: "Skills", icon: BookMarked },
+  { path: "/apps", label: "Apps", icon: LayoutGrid },
+  { path: "/settings", label: "Settings", icon: Settings },
+  { path: "/help", label: "Help", icon: HelpCircle },
+];
 
-export default function Sidebar({ isCollapsed, onToggle }: { isCollapsed: boolean; onToggle: () => void }) {
+export default function Sidebar({
+  isCollapsed,
+  onToggle,
+}: {
+  isCollapsed: boolean;
+  onToggle: () => void;
+}) {
   return (
     <aside
       style={{ width: isCollapsed ? 80 : 260 }}
@@ -53,8 +60,12 @@ export default function Sidebar({ isCollapsed, onToggle }: { isCollapsed: boolea
           </div>
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
-              <span className="text-lg font-bold tracking-tight text-white leading-tight">Discord MCP</span>
-              <span className="text-[10px] font-medium text-indigo-400/80 uppercase tracking-widest">Dashboard</span>
+              <span className="text-lg font-bold tracking-tight text-white leading-tight">
+                Discord MCP
+              </span>
+              <span className="text-[10px] font-medium text-indigo-400/80 uppercase tracking-widest">
+                Dashboard
+              </span>
             </div>
           )}
         </div>
@@ -67,13 +78,15 @@ export default function Sidebar({ isCollapsed, onToggle }: { isCollapsed: boolea
             className={({ isActive }) =>
               `flex items-center gap-4 px-3 py-3 rounded-xl transition-all duration-200 ${
                 isActive
-                  ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
+                  ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent"
               }`
             }
           >
             <item.icon className="w-5 h-5 flex-shrink-0" />
-            {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
+            {!isCollapsed && (
+              <span className="text-sm font-medium">{item.label}</span>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -85,5 +98,5 @@ export default function Sidebar({ isCollapsed, onToggle }: { isCollapsed: boolea
         {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>
     </aside>
-  )
+  );
 }

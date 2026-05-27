@@ -1,58 +1,71 @@
-import { useEffect, useState } from 'react'
-import { Users, AlertCircle, Download } from 'lucide-react'
-import { api, type Guild, type GuildsResponse, type MembersResponse, type Member } from '../lib/api'
-import { exportCSV, exportJSON } from '../lib/export'
+import { AlertCircle, Download, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  api,
+  type Guild,
+  type GuildsResponse,
+  type Member,
+  type MembersResponse,
+} from "../lib/api";
+import { exportCSV, exportJSON } from "../lib/export";
 
 export default function Members() {
-  const [guilds, setGuilds] = useState<Guild[]>([])
-  const [members, setMembers] = useState<Member[]>([])
-  const [selectedGuildId, setSelectedGuildId] = useState<string>('')
-  const [limit, setLimit] = useState(100)
-  const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
+  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [selectedGuildId, setSelectedGuildId] = useState<string>("");
+  const [limit, setLimit] = useState(100);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getGuilds().then((r: GuildsResponse) => setGuilds(r.guilds ?? [])).catch((e) => setErr(e.message))
-  }, [])
+    api
+      .getGuilds()
+      .then((r: GuildsResponse) => setGuilds(r.guilds ?? []))
+      .catch((e) => setErr(e.message));
+  }, []);
 
   useEffect(() => {
     if (!selectedGuildId) {
-      setMembers([])
-      return
+      setMembers([]);
+      return;
     }
-    setLoading(true)
-    setErr(null)
+    setLoading(true);
+    setErr(null);
     api
       .getMembers(selectedGuildId, limit)
       .then((r: MembersResponse) => setMembers(r.members ?? []))
       .catch((e) => setErr(e.message))
-      .finally(() => setLoading(false))
-  }, [selectedGuildId, limit])
+      .finally(() => setLoading(false));
+  }, [selectedGuildId, limit]);
 
   const handleExportCSV = () => {
     const rows = members.map((m) => ({
       user_id: m.user_id,
-      username: m.username ?? '',
-      nick: m.nick ?? '',
-      roles: (m.roles ?? []).join(';'),
-      joined_at: m.joined_at ?? '',
-    }))
-    exportCSV(rows, `discord-members-${selectedGuildId}.csv`)
-  }
+      username: m.username ?? "",
+      nick: m.nick ?? "",
+      roles: (m.roles ?? []).join(";"),
+      joined_at: m.joined_at ?? "",
+    }));
+    exportCSV(rows, `discord-members-${selectedGuildId}.csv`);
+  };
   const handleExportJSON = () => {
     exportJSON(
       { guild_id: selectedGuildId, members, count: members.length },
-      `discord-members-${selectedGuildId}.json`
-    )
-  }
+      `discord-members-${selectedGuildId}.json`,
+    );
+  };
 
   return (
     <div className="space-y-6 py-4 max-w-5xl">
       <div className="flex items-center gap-4">
         <Users className="text-indigo-400 w-8 h-8" />
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Members</h1>
-          <p className="text-slate-400 text-sm">List members (GUILD_MEMBERS intent required)</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Members
+          </h1>
+          <p className="text-slate-400 text-sm">
+            List members (GUILD_MEMBERS intent required)
+          </p>
         </div>
       </div>
 
@@ -115,30 +128,49 @@ export default function Members() {
           <table className="w-full text-left min-w-[500px]">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="p-4 text-sm font-bold text-slate-300">Username</th>
+                <th className="p-4 text-sm font-bold text-slate-300">
+                  Username
+                </th>
                 <th className="p-4 text-sm font-bold text-slate-300">Nick</th>
-                <th className="p-4 text-sm font-bold text-slate-300">User ID</th>
+                <th className="p-4 text-sm font-bold text-slate-300">
+                  User ID
+                </th>
                 <th className="p-4 text-sm font-bold text-slate-300">Joined</th>
                 <th className="p-4 text-sm font-bold text-slate-300">Roles</th>
               </tr>
             </thead>
             <tbody>
               {members.map((m) => (
-                <tr key={m.user_id} className="border-b border-white/5 hover:bg-white/5">
-                  <td className="p-4 font-medium text-slate-200">{m.username ?? '—'}</td>
-                  <td className="p-4 text-slate-400">{m.nick ?? '—'}</td>
-                  <td className="p-4 font-mono text-sm text-slate-400">{m.user_id}</td>
-                  <td className="p-4 text-slate-400 text-sm">{m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '—'}</td>
-                  <td className="p-4 text-slate-400 text-sm">{(m.roles ?? []).length}</td>
+                <tr
+                  key={m.user_id}
+                  className="border-b border-white/5 hover:bg-white/5"
+                >
+                  <td className="p-4 font-medium text-slate-200">
+                    {m.username ?? "—"}
+                  </td>
+                  <td className="p-4 text-slate-400">{m.nick ?? "—"}</td>
+                  <td className="p-4 font-mono text-sm text-slate-400">
+                    {m.user_id}
+                  </td>
+                  <td className="p-4 text-slate-400 text-sm">
+                    {m.joined_at
+                      ? new Date(m.joined_at).toLocaleDateString()
+                      : "—"}
+                  </td>
+                  <td className="p-4 text-slate-400 text-sm">
+                    {(m.roles ?? []).length}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
           {members.length === 0 && (
-            <p className="p-6 text-slate-500 text-center">No members or enable GUILD_MEMBERS intent.</p>
+            <p className="p-6 text-slate-500 text-center">
+              No members or enable GUILD_MEMBERS intent.
+            </p>
           )}
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -1,25 +1,28 @@
-import { useEffect, useState } from 'react'
-import { BookMarked, AlertCircle, Copy } from 'lucide-react'
-import { api, type SkillEntry } from '@/lib/api'
+import { AlertCircle, BookMarked, Copy, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api, type SkillEntry } from "@/lib/api";
 
 export default function Skills() {
-  const [skills, setSkills] = useState<SkillEntry[]>([])
-  const [err, setErr] = useState<string | null>(null)
+  const [skills, setSkills] = useState<SkillEntry[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     api
       .getSkills()
       .then((r) => setSkills(r.skills ?? []))
-      .catch((e) => setErr(e instanceof Error ? e.message : 'Failed to load'))
-  }, [])
+      .catch((e) => setErr(e instanceof Error ? e.message : "Failed to load"))
+      .finally(() => setLoading(false));
+  }, []);
 
   const copy = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(text);
     } catch {
       /* ignore */
     }
-  }
+  };
 
   return (
     <div className="space-y-6 pb-8 max-w-4xl">
@@ -36,14 +39,24 @@ export default function Skills() {
           <div>
             <h2 className="text-lg font-semibold text-white">Bundled skills</h2>
             <p className="text-sm text-slate-500">
-              Exposed to MCP clients as <span className="font-mono text-slate-400">skill://…/SKILL.md</span>.
-              Copy below or install into your Cursor / Claude skills folder.
+              Exposed to MCP clients as{" "}
+              <span className="font-mono text-slate-400">
+                skill://…/SKILL.md
+              </span>
+              . Copy below or install into your Cursor / Claude skills folder.
             </p>
           </div>
         </div>
 
-        {skills.length === 0 ? (
-          <p className="text-slate-500 text-sm">No skills found on the server.</p>
+        {loading ? (
+          <div className="flex items-center gap-3 text-slate-500 text-sm py-4">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            <span>Loading skills…</span>
+          </div>
+        ) : skills.length === 0 ? (
+          <p className="text-slate-500 text-sm">
+            No skills found on the server.
+          </p>
         ) : (
           <ul className="space-y-4">
             {skills.map((s) => (
@@ -52,7 +65,9 @@ export default function Skills() {
                 className="rounded-xl border border-white/5 bg-black/25 overflow-hidden"
               >
                 <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/5 bg-white/[0.02]">
-                  <span className="font-mono text-sm text-indigo-300">{s.name}</span>
+                  <span className="font-mono text-sm text-indigo-300">
+                    {s.name}
+                  </span>
                   <button
                     type="button"
                     onClick={() => copy(s.preview)}
@@ -71,5 +86,5 @@ export default function Skills() {
         )}
       </div>
     </div>
-  )
+  );
 }

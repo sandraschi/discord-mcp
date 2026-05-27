@@ -1,19 +1,31 @@
-import { useEffect, useState } from 'react'
-import { Activity, AlertCircle, Cpu, Shield, Webhook } from 'lucide-react'
-import { api, type Health } from '../lib/api'
+import { Activity, AlertCircle, Cpu, Server, Shield, Webhook } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { api, type Guild, type Health } from "../lib/api";
 
 export default function Dashboard() {
-  const [health, setHealth] = useState<Health | null>(null)
-  const [err, setErr] = useState<string | null>(null)
+  const [health, setHealth] = useState<Health | null>(null);
+  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const [discordErr, setDiscordErr] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
-    api.getHealth().then(setHealth).catch((e) => setErr(e.message))
-    const t = setInterval(() => api.getHealth().then(setHealth).catch(() => {}), 5000)
-    return () => clearInterval(t)
-  }, [])
+    api
+      .getHealth()
+      .then(setHealth)
+      .catch((e) => setErr(e.message));
+    api
+      .getGuilds()
+      .then((r) => {
+        if (r.success && r.guilds) setGuilds(r.guilds);
+        else if (r.error) setDiscordErr(r.error);
+      })
+      .catch(() => {});
+  }, [location.pathname]);
 
-  const rl = health?.rate_limit
-  const samp = health?.sampling
+  const rl = health?.rate_limit;
+  const samp = health?.sampling;
 
   return (
     <div className="space-y-6 pb-8 max-w-5xl">
@@ -27,11 +39,30 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-5">
           <div className="flex items-center gap-3 mb-2">
+            <Server className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-sm font-bold text-slate-200">Guilds</h2>
+          </div>
+          <p className="text-2xl font-bold text-white">
+            {guilds.length}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Servers the bot can access
+            {discordErr ? (
+              <span className="text-amber-400"> — {discordErr}</span>
+            ) : null}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-5">
+          <div className="flex items-center gap-3 mb-2">
             <Activity className="w-5 h-5 text-indigo-400" />
             <h2 className="text-sm font-bold text-slate-200">Backend</h2>
           </div>
-          <p className="text-2xl font-bold text-white">{health?.status === 'ok' ? 'OK' : '—'}</p>
-          <p className="text-xs text-slate-500 mt-1">Service: {health?.service ?? '—'}</p>
+          <p className="text-2xl font-bold text-white">
+            {health?.status === "ok" ? "OK" : "—"}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Service: {health?.service ?? "—"}
+          </p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-5">
           <div className="flex items-center gap-3 mb-2">
@@ -39,9 +70,13 @@ export default function Dashboard() {
             <h2 className="text-sm font-bold text-slate-200">MCP HTTP</h2>
           </div>
           <p className="text-sm font-mono text-indigo-300/90 break-all">
-            {health?.mcp_http_path ? `http://localhost:10756${health.mcp_http_path}` : '—'}
+            {health?.mcp_http_path
+              ? `http://localhost:10756${health.mcp_http_path}`
+              : "—"}
           </p>
-          <p className="text-xs text-slate-500 mt-2">Streamable HTTP (FastMCP 3.1)</p>
+          <p className="text-xs text-slate-500 mt-2">
+            Streamable HTTP (FastMCP 3.2)
+          </p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-5">
           <div className="flex items-center gap-3 mb-2">
@@ -49,10 +84,10 @@ export default function Dashboard() {
             <h2 className="text-sm font-bold text-slate-200">Sampling</h2>
           </div>
           <p className="text-2xl font-bold text-white">
-            {samp?.server_side_llm_ready ? 'Ready' : 'Offline'}
+            {samp?.server_side_llm_ready ? "Ready" : "Offline"}
           </p>
           <p className="text-xs text-slate-500 mt-1">
-            {samp?.sampling_model ?? '—'} @ {samp?.sampling_base_url ?? '—'}
+            {samp?.sampling_model ?? "—"} @ {samp?.sampling_base_url ?? "—"}
           </p>
           {health?.sampling_use_client_llm_preferred ? (
             <p className="text-[10px] text-slate-600 mt-2 uppercase tracking-wider">
@@ -62,10 +97,12 @@ export default function Dashboard() {
         </div>
         <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-5">
           <div className="flex items-center gap-3 mb-2">
-            <Activity className="w-5 h-5 text-indigo-400" />
+            <Shield className="w-5 h-5 text-emerald-400" />
             <h2 className="text-sm font-bold text-slate-200">Bot token</h2>
           </div>
-          <p className="text-2xl font-bold text-white">{health?.token_set ? 'Set' : 'Not set'}</p>
+          <p className="text-2xl font-bold text-white">
+            {health?.token_set ? "Set" : "Not set"}
+          </p>
           <p className="text-xs text-slate-500 mt-1">DISCORD_TOKEN in .env</p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-5 sm:col-span-2 lg:col-span-2">
@@ -76,7 +113,8 @@ export default function Dashboard() {
           {rl ? (
             <ul className="text-xs text-slate-400 space-y-0.5 grid sm:grid-cols-2 gap-x-8">
               <li>
-                Messages: {rl.messages_per_minute}/min, {rl.messages_per_channel_per_minute}/channel
+                Messages: {rl.messages_per_minute}/min,{" "}
+                {rl.messages_per_channel_per_minute}/channel
               </li>
               <li>Channels: {rl.channels_per_minute}/min</li>
               <li>Invites: {rl.invites_per_minute}/min</li>
@@ -88,5 +126,5 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
-  )
+  );
 }

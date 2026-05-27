@@ -1,4 +1,5 @@
 """RAG over Discord messages using LanceDB (required)."""
+
 import asyncio
 import logging
 import os
@@ -19,6 +20,7 @@ def _get_embedding_model():
     global _model
     if _model is None:
         from sentence_transformers import SentenceTransformer
+
         _model = SentenceTransformer("all-MiniLM-L6-v2")
     return _model
 
@@ -27,6 +29,7 @@ def _get_db():
     global _db
     if _db is None:
         import lancedb
+
         path = os.environ.get(_LANCEDB_PATH_ENV, "").strip() or "data/discord_lancedb"
         Path(path).mkdir(parents=True, exist_ok=True)
         _db = lancedb.connect(path)
@@ -70,17 +73,19 @@ def ingest_messages(
             if not text.strip():
                 continue
             vec = model.encode(text, convert_to_numpy=True).astype("float32").tolist()
-            rows.append({
-                "vector": vec,
-                "text": text[:4000],
-                "message_id": m.get("id", ""),
-                "channel_id": channel_id,
-                "guild_id": guild_id,
-                "author": (m.get("author") or "")[:200],
-                "timestamp": (m.get("timestamp") or "")[:50],
-                "guild_name": guild_name[:200],
-                "channel_name": channel_name[:200],
-            })
+            rows.append(
+                {
+                    "vector": vec,
+                    "text": text[:4000],
+                    "message_id": m.get("id", ""),
+                    "channel_id": channel_id,
+                    "guild_id": guild_id,
+                    "author": (m.get("author") or "")[:200],
+                    "timestamp": (m.get("timestamp") or "")[:50],
+                    "guild_name": guild_name[:200],
+                    "channel_name": channel_name[:200],
+                }
+            )
         if not rows:
             return {"success": True, "ingested": 0}
         if table_name in db.table_names():
@@ -114,17 +119,19 @@ def query(
         rs = tbl.search(qvec).limit(top_k).to_list()
         hits = []
         for r in rs:
-            hits.append({
-                "text": r.get("text", ""),
-                "message_id": r.get("message_id"),
-                "channel_id": r.get("channel_id"),
-                "guild_id": r.get("guild_id"),
-                "author": r.get("author"),
-                "timestamp": r.get("timestamp"),
-                "guild_name": r.get("guild_name"),
-                "channel_name": r.get("channel_name"),
-                "distance": float(r.get("_distance", 0)),
-            })
+            hits.append(
+                {
+                    "text": r.get("text", ""),
+                    "message_id": r.get("message_id"),
+                    "channel_id": r.get("channel_id"),
+                    "guild_id": r.get("guild_id"),
+                    "author": r.get("author"),
+                    "timestamp": r.get("timestamp"),
+                    "guild_name": r.get("guild_name"),
+                    "channel_name": r.get("channel_name"),
+                    "distance": float(r.get("_distance", 0)),
+                }
+            )
         return {"success": True, "hits": hits}
     except Exception as e:
         logger.exception("RAG query failed")
