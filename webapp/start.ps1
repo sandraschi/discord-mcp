@@ -1,15 +1,25 @@
-﻿Param([switch]$Headless)
+﻿param(
+    [switch]$Headless,
+    [switch]$BackendOnly,
+    [switch]$FrontendOnly,
+    [switch]$NoBrowser
+)
 
-# --- SOTA Headless Standard ---
-if ($Headless -and ($Host.UI.RawUI.WindowTitle -notmatch 'Hidden')) {
-    Start-Process pwsh -ArgumentList '-NoProfile', '-File', $PSCommandPath, '-Headless' -WindowStyle Hidden
-    exit
+$FleetStartPath = Join-Path $Root "scripts\FleetStartMode.ps1"
+if (-not (Test-Path -LiteralPath $FleetStartPath)) {
+    Write-Host "ERROR: Missing vendored launcher helper: $FleetStartPath" -ForegroundColor Red
+    exit 1
 }
-$WindowStyle = if ($Headless) { 'Hidden' } else { 'Normal' }
-# ------------------------------
+. $FleetStartPath
+$FleetStart = Initialize-FleetStartMode @PSBoundParameters
+Enter-FleetHeadlessConsole -Headless:$Headless -BackendOnly:$BackendOnly
 
-# Run from repo root so backend starts correctly
+$BackendPort = 10756
+$FrontendPort = 10757
+Stop-FleetPortSquatters -Ports @($BackendPort, $FrontendPort) -Label "discord-mcp"
+
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
-& (Join-Path $root "start.ps1")
+& (Join-Path $root "start.ps1") @PSBoundParameters
+exit $LASTEXITCODE
 
