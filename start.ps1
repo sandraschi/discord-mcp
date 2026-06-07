@@ -20,6 +20,8 @@ if (-not (Test-Path -LiteralPath $FleetStartPath)) {
 . $FleetStartPath
 Stop-FleetPortSquatters -Ports @($BackendPort, $FrontendPort) -Label "discord-mcp"
 
+if (-not (Assert-FleetPortsAvailable -Ports @($BackendPort, $FrontendPort) -Label "discord-mcp")) { exit 1 }
+
 Write-Host "Starting discord-mcp..." -ForegroundColor Cyan
 
 $backendCmd = "Set-Location '$ScriptRoot'; `$env:FASTMCP_LOG_LEVEL='WARNING'; uv run python -m discord_mcp.server --mode dual --port $BackendPort"
@@ -60,4 +62,5 @@ if (-not $NoBrowser) {
 Write-Host "Starting Vite frontend on port $FrontendPort..." -ForegroundColor Green
 Set-Location $WebRoot
 npm run dev -- --port $FrontendPort --host --strictPort
+
 

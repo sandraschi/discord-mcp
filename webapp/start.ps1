@@ -18,8 +18,11 @@ $BackendPort = 10756
 $FrontendPort = 10757
 Stop-FleetPortSquatters -Ports @($BackendPort, $FrontendPort) -Label "discord-mcp"
 
+if (-not (Assert-FleetPortsAvailable -Ports @($BackendPort, $FrontendPort) -Label "discord-mcp")) { exit 1 }
+
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 & (Join-Path $root "start.ps1") @PSBoundParameters
 exit $LASTEXITCODE
+
 
