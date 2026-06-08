@@ -60,6 +60,11 @@ audit-deps:
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 
+# Run Python unit tests
+test:
+    Set-Location '{{justfile_directory()}}'
+    uv run pytest tests/ -q
+
 # Run e2e Playwright tests
 e2e:
     pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File "D:\Dev\repos\mcp-central-docs\scripts\playwright-audit.ps1" -RepoPath "{{justfile_directory()}}"

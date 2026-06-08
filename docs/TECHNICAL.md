@@ -1,12 +1,12 @@
 # discord-mcp — technical reference
 
-**Last updated:** 2026-03-20
+**Last updated:** 2026-06-08
 
 ## Architecture
 
 - **Single process (HTTP mode):** One **FastAPI** app serves REST (`/api/v1/…`, OpenAPI `/docs`) and mounts **FastMCP** streamable HTTP at **`/mcp`**.
 - **Stdio mode:** `python -m discord_mcp.server --mode stdio` runs **only** the MCP server (`mcp.run_stdio_async()`), no REST.
-- **Portmanteau:** `discord(operation=…)` in `portmanteau.py` — Discord REST v10 via **httpx**.
+- **Portmanteau:** `discord(operation=…)` in `portmanteau.py` — **36 operations** against Discord REST v10 via **httpx**.
 - **Agentic:** `agentic.py` uses `ctx.sample()` with small async tool functions that call the same REST helpers (SEP-1577).
 
 ## Environment

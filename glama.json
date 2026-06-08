@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "name": "discord-mcp",
-  "description": "FastMCP 3.1 Discord bridge: REST portmanteau, LanceDB RAG, sampling-based agentic workflows, bundled skills.",
-  "version": "0.1.0",
+  "description": "FastMCP 3.2 Discord bridge: 36 REST operations, LanceDB RAG, sampling-based agentic workflows, bundled skills.",
+  "version": "0.2.0",
   "transport": {
     "type": "streamable-http",
     "url": "http://127.0.0.1:10756/mcp"

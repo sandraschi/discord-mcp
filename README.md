@@ -4,6 +4,7 @@
   <a href="https://github.com/casey/just"><img src="https://img.shields.io/badge/just-ready_to_go-7c5cfc?style=flat-square&logo=just&logoColor=white" alt="Just"></a>
   <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
   <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.13+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/tests-14%20passing-brightgreen?style=flat-square" alt="Tests"></a>
   <a href="https://biomejs.dev"><img src="https://img.shields.io/badge/Linted_with-Biome-60a5fa?style=flat-square&logo=biome&logoColor=white" alt="Biome"></a>
   <a href="https://github.com/PrefectHQ/fastmcp"><img src="https://img.shields.io/badge/FastMCP-3.2-7c5cfc?style=flat-square" alt="FastMCP"></a>
 </p>
@@ -13,7 +14,9 @@
 
 **Repository:** [github.com/sandraschi/discord-mcp](https://github.com/sandraschi/discord-mcp)
 
-FastMCP **3.1** Discord MCP server with **sampling** (server-side Ollama / OpenAI-compatible or client LLM), **agentic workflow** (`discord_agentic_workflow`), **skills** (`SkillsDirectoryProvider` + `skill:///SKILL.md`), **prompts**, and a **2026 fleet-style** dashboard (React + Vite + Tailwind, dark glass shell).
+**v0.2.0** — 36 Discord operations, 14 tests passing, FastMCP 3.2+, dual transport (stdio + HTTP).
+
+FastMCP **3.2** Discord MCP server with **sampling** (server-side Ollama / OpenAI-compatible or client LLM), **agentic workflow** (`discord_agentic_workflow`), **skills** (`SkillsDirectoryProvider` + `skill:///SKILL.md`), **prompts**, and a **2026 fleet-style** dashboard (React + Vite + Tailwind, dark glass shell).
 
 ## Ports
 
@@ -55,13 +58,22 @@ If you don't have `just` installed:
 
 ## MCP HTTP (remote / Inspector)
 
-- Endpoint: `http://localhost:10756/mcp` (streamable HTTP, FastMCP 3.1.0)
+- Endpoint: `http://localhost:10756/mcp` (streamable HTTP, FastMCP 3.2)
 - Discovery / manifest: `GET /api/v1/meta`
 - Health: `GET /api/v1/health` (includes sampling status)
 
 ## Tools
 
-- **discord(operation=)**  Portmanteau: `list_guilds`, `list_channels`, `send_message`, `get_messages`, `get_guild_stats`, `create_channel`, `create_guild`, `create_invite`, `list_invites`, `revoke_invite`, `list_members`, `get_member`, `list_active_threads`, `rag_ingest`, `rag_query`. `create_guild` requires user OAuth2 (bot 403). `list_members` / `get_member` require GUILD_MEMBERS intent.
+- **discord(operation=)**  Portmanteau with **36 operations**:
+  - **Discovery:** `list_guilds`, `list_channels`, `list_members`, `get_member`, `get_guild_stats`, `list_active_threads`
+  - **Messaging:** `send_message`, `get_messages`, `edit_message`, `delete_message`, `create_dm`
+  - **Channels & invites:** `create_channel`, `create_guild`, `create_invite`, `list_invites`, `revoke_invite`
+  - **Moderation:** `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `list_bans`, `get_audit_log`
+  - **Roles:** `list_roles`, `create_role`, `delete_role`, `assign_role`, `remove_role`
+  - **Webhooks:** `list_webhooks`, `create_webhook`, `delete_webhook`, `send_webhook`
+  - **Guild assets:** `list_emojis`, `delete_emoji`, `list_stickers`
+  - **RAG:** `rag_ingest`, `rag_query`
+  - `create_guild` requires user OAuth2 (bot 403). `list_members` / `get_member` require **GUILD_MEMBERS** privileged intent.
 - **discord_help(category=, topic=)**  Multi-level help.
 - **discord_agentic_workflow(goal, ctx)**  High-level goal via `ctx.sample` + tools (SEP-1577). Returns a structured **dict** (`success`, `message`, `recommendations` or error fields).
 
@@ -84,6 +96,7 @@ Bundled under `src/discord_mcp/skills/<name>/SKILL.md`, exposed as MCP resources
 - `GET /api/v1/skills`  Bundled skill previews (dashboard)
 - `GET /api/v1/guilds`  List guilds (proxy to tool)
 - `GET /api/v1/guilds/{guild_id}/channels`  List channels
+- Moderation, roles, webhooks, audit, RAG routes under `/api/v1/…`
 - (See OpenAPI at `/docs` for full list.)
 
 ## Discord HTTP 429 (API rate limits)
@@ -109,7 +122,8 @@ Env: `DISCORD_RATE_LIMIT_MESSAGES_PER_MINUTE`, `DISCORD_RATE_LIMIT_MESSAGES_PER_
 
 ## Standards
 
-- FastMCP 3.1.0: instructions, sampling handler, skills provider, strict validation, streamable HTTP mount.
+- FastMCP 3.2: instructions, sampling handler, skills provider, strict validation, streamable HTTP mount.
+- CI: ruff + pytest + Playwright e2e (`.github/workflows/ci.yml`).
 - Webapp: `start.ps1`, ports 10756/10757, dark glass layout, top bar status, activity log, Tools / Skills / Apps pages.
 
 
@@ -120,5 +134,5 @@ This project adheres to **SOTA 14.1** industrial standards for high-fidelity age
 - **Python (Core)**: [Ruff](https://astral.sh/ruff) for linting and formatting. Zero-tolerance for `print` statements in core handlers (`T201`).
 - **Webapp (UI)**: [Biome](https://biomejs.dev/) for sub-millisecond linting. Strict `noConsoleLog` enforcement.
 - **Protocol Compliance**: Hardened `stdout/stderr` isolation to ensure crash-resistant JSON-RPC communication.
-- **Automation**: [Justfile](./justfile) recipes for all fleet operations (`just lint`, `just fix`, `just dev`).
+- **Automation**: [Justfile](./justfile) recipes for all fleet operations (`just lint`, `just test`, `just fix`, `just dev`).
 - **Security**: Automated audits via `bandit` and `safety`.
