@@ -1,9 +1,16 @@
 # discord-mcp — documentation index
 
-| Doc | Purpose |
-|-----|---------|
-| [TECHNICAL.md](./TECHNICAL.md) | Architecture, transports, environment, Discord API 429, troubleshooting |
-| [../README.md](../README.md) | User-facing README (setup, tools, ports) |
-| [../CHANGELOG.md](../CHANGELOG.md) | Version history |
+| Doc | Audience | Contents |
+|-----|----------|----------|
+| [../README.md](../README.md) | First visit | Short overview, quick start, doc table |
+| [../INSTALL.md](../INSTALL.md) | Installing | Options A–D, prerequisites, verify |
+| [CONFIGURATION.md](./CONFIGURATION.md) | Customizing | Bot token, env vars, sampling, rate limits |
+| [TOOLS.md](./TOOLS.md) | Power users | 36 operations, prompts, skills, resources |
+| [WEBAPP.md](./WEBAPP.md) | Dashboard users | Pages, REST API, MCP HTTP |
+| [CURSOR-MCP.md](./CURSOR-MCP.md) | IDE hosts | Cursor, Claude Desktop, Inspector |
+| [TECHNICAL.md](./TECHNICAL.md) | Contributors | Architecture, 429 retry, transports |
+| [DEVELOPMENT.md](./DEVELOPMENT.md) | Contributors | uv, just, lint, test, CI |
+| [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | Everyone | Common errors and fixes |
+| [../CHANGELOG.md](../CHANGELOG.md) | Release tracking | Version history |
 
-**Central (fleet) mirror:** `D:/Dev/repos/mcp-central-docs/projects/discord-mcp/` — README, STATUS, STRUCTURE, INTEGRATION.
+**Fleet central mirror:** [mcp-central-docs/projects/discord-mcp](https://github.com/sandraschi/mcp-central-docs/tree/master/projects/discord-mcp)

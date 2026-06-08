@@ -1,75 +1,121 @@
-# Installation
+# Installing discord-mcp
 
-## 🚀 Quick Start (recommended)
+## Prerequisites
+
+Install these if you don't have them:
+
+| Tool | Purpose | Install (Windows) |
+|------|---------|-------------------|
+| Git | Clone repo (Options C/D) | `winget install Git.Git` |
+| uv | Python deps | `winget install astral-sh.uv` |
+| Node.js | Webapp (Options C/D) | `winget install OpenJS.NodeJS` |
+| just | Fleet recipes (optional) | `winget install Casey.Just` |
+
+> macOS: `brew install uv git node just` · Linux: use your distro or [uv](https://docs.astral.sh/uv/) installer
+
+You also need a **Discord bot token** — see [docs/CONFIGURATION.md](docs/CONFIGURATION.md#discord-bot-token).
+
+---
+
+## Option A — MCPB drag and drop (when published)
+
+1. Go to [Releases](https://github.com/sandraschi/discord-mcp/releases/latest)
+2. Download `discord-mcp-*.mcpb` (when available)
+3. Claude Desktop → Settings → MCP Servers → Install from file
+
+Until MCPB ships, use Option B or C.
+
+---
+
+## Option B — Fastest from source
 
 ```powershell
-# Install just if you don't have it
-winget install Casey.Just    # Windows
-# scoop install just          # Windows (alternative)
-# brew install just           # macOS
-# sudo apt install just       # Debian/Ubuntu
-# cargo install just          # Linux (Rust)
-
 git clone https://github.com/sandraschi/discord-mcp
 cd discord-mcp
-just
+copy .env.example .env
+# Edit .env — set DISCORD_TOKEN
+.\start.ps1
 ```
 
-The interactive recipe dashboard opens in your browser. From there:
+Opens dashboard **http://127.0.0.1:10757** · backend **http://127.0.0.1:10756**.
+
+---
+
+## Option C — Manual from source
 
 ```powershell
-just bootstrap   # install all dependencies
-just serve       # start the server
-just web         # start the frontend (if applicable)
+git clone https://github.com/sandraschi/discord-mcp
+cd discord-mcp
+uv sync --all-extras
+Set-Location webapp
+npm install
+Set-Location ..
+copy .env.example .env
+# Edit .env — set DISCORD_TOKEN
+.\start.ps1
 ```
 
-> **Why not `pip install`?** MCP servers bundle webapps, configs, project scaffolding, and tooling that a flat Python package can't deliver. PyPI offers no safety advantage — it doesn't audit packages either. `just` gives you the complete, ready-to-run stack.
+**Stdio only** (no webapp):
+
+```powershell
+uv run python -m discord_mcp.server --mode stdio
+```
+
+Add to Claude Desktop (`%APPDATA%\Claude\claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "discord-mcp": {
+      "command": "uv",
+      "args": ["--directory", "C:\\path\\to\\discord-mcp", "run", "python", "-m", "discord_mcp.server", "--mode", "stdio"],
+      "env": {
+        "DISCORD_TOKEN": "your_bot_token_here",
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  }
+}
+```
+
+Cursor wiring: [docs/CURSOR-MCP.md](docs/CURSOR-MCP.md)
 
 ---
 
-## 🐌 Traditional Setup
+## Option D — Developer mode
 
-If you prefer not to use `just`:
+Uses `just` for bootstrap, lint, test, and serve:
 
-1. Install [Python 3.13+](https://python.org) and [uv](https://docs.astral.sh/uv/)
-2. Clone and enter the repo:
-   ```powershell
-   git clone https://github.com/sandraschi/discord-mcp
-   cd discord-mcp
-   ```
-3. Install dependencies:
-   ```powershell
-   uv sync --all-extras
-   ```
-4. Start the server:
-   ```powershell
-   # stdio mode (for MCP clients like Claude Desktop)
-   uv run python -m discord_mcp.server
+```powershell
+winget install Casey.Just
+git clone https://github.com/sandraschi/discord-mcp
+cd discord-mcp
+just bootstrap
+just serve
+```
 
-   # HTTP mode (for web dashboard)
-   uv run uvicorn discord_mcp.server:app --port 10756
-   ```
-
-4. (optional) Start the frontend:
-   ```powershell
-   cd webapp
-   npm install
-   npm run dev
-   ```
-
-5. Open `http://localhost:10756` or the frontend URL.
+Full dev guide: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
 ---
 
-## ❓ Troubleshooting
+## Verify installation
+
+1. Open **http://127.0.0.1:10757/dashboard** — health indicator should show backend connected.
+2. Or: `GET http://127.0.0.1:10756/api/v1/health` → `"status": "ok"`, `"token_set": true`.
+3. In your MCP host, ask: **List Discord guilds this bot can see.**
+
+---
+
+## Troubleshooting
+
+See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 | Issue | Fix |
-|---|---|
-| `just` not found | Install via `winget install Casey.Just`, `scoop install just`, or `brew install just` |
-| Port conflict | Run `just kill-all` to clear fleet ports (10700–11000) |
-| Dependencies out of sync | `uv sync --all-extras` |
-| Something else | [Open a GitHub issue](https://github.com/sandraschi/discord-mcp/issues) |
+|-------|-----|
+| `just` not found | `winget install Casey.Just` or use Option B/C without just |
+| Port conflict | Stop other service on 10756/10757 |
+| Token errors | [CONFIGURATION.md](docs/CONFIGURATION.md) |
 
 ---
 
-*See the main [README](README.md) for feature overview and documentation.*
+*Feature overview: [README.md](README.md)*

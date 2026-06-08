@@ -9,149 +9,99 @@
   <a href="https://github.com/PrefectHQ/fastmcp"><img src="https://img.shields.io/badge/FastMCP-3.2-7c5cfc?style=flat-square" alt="FastMCP"></a>
 </p>
 
+Connect your Discord bot to MCP clients — list servers, send messages, moderate members, search message history with RAG, and run agentic workflows from Cursor or Claude Desktop.
 
-> 📖 **[Installation Guide](INSTALL.md)** — quick start, manual setup, and troubleshooting
+**v0.2.0** · 36 operations · FastMCP 3.2 · Comms lane · [Releases](https://github.com/sandraschi/discord-mcp/releases)
 
-**Repository:** [github.com/sandraschi/discord-mcp](https://github.com/sandraschi/discord-mcp)
+---
 
-**v0.2.0** — 36 Discord operations, 14 tests passing, FastMCP 3.2+, dual transport (stdio + HTTP).
+## Contents
 
-FastMCP **3.2** Discord MCP server with **sampling** (server-side Ollama / OpenAI-compatible or client LLM), **agentic workflow** (`discord_agentic_workflow`), **skills** (`SkillsDirectoryProvider` + `skill:///SKILL.md`), **prompts**, and a **2026 fleet-style** dashboard (React + Vite + Tailwind, dark glass shell).
+- [Features](#features)
+- [Quick start](#quick-start)
+- [What you can do](#what-you-can-do)
+- [Ports](#ports)
+- [Documentation](#documentation)
+- [Requirements](#requirements)
 
-## Ports
+---
 
-- **Backend**: 10756  REST (`/api/v1/`) + MCP **streamable HTTP** at **`/mcp`**
-- **Frontend**: 10757
+## Features
 
-## Quick Start
+- **36 Discord operations** in one portmanteau tool — messaging, moderation, roles, webhooks, audit log, RAG
+- **Fleet web dashboard** — guilds, channels, messages, agentic chat, LanceDB search (ports **10756** / **10757**)
+- **Agentic workflow** — describe a goal; server uses sampling + tools (SEP-1577)
+- **Dual transport** — stdio for IDE hosts, streamable HTTP at `/mcp` for remote clients
+- **Built-in safety** — anti-spam rate limits, Discord 429 auto-retry, bind localhost only
+- **Bundled skills & prompts** — moderation playbook, RAG workflow, ops guides
 
-```powershell
-git clone https://github.com/sandraschi/discord-mcp
-cd discord-mcp
-just
-```
+---
 
-This opens an interactive dashboard showing all available commands. Run `just bootstrap` to install dependencies, then `just serve` or `just dev` to start.
-
-### Manual Setup
-
-If you don't have [`just`](https://github.com/casey/just) installed:
-
-```powershell
-winget install Casey.Just
-```
-
-Then run `just bootstrap` and `just serve` as above.
-
-**Without `just`** — same stack, manual steps:
+## Quick start
 
 ```powershell
 git clone https://github.com/sandraschi/discord-mcp
 cd discord-mcp
-uv sync --all-extras
-Set-Location webapp
-npm install
-Set-Location ..
 .\start.ps1
 ```
 
-Opens backend **10756** and dashboard **10757**. Full options and troubleshooting: **[INSTALL.md](INSTALL.md)**.
+1. Copy `.env.example` → `.env` and set `DISCORD_TOKEN` ([bot setup](docs/CONFIGURATION.md#discord-bot-token))
+2. Open dashboard **http://127.0.0.1:10757** · API **http://127.0.0.1:10756**
 
-## Setup
+Other install paths (just, Cursor, Claude Desktop, no-git): **[INSTALL.md](INSTALL.md)**
 
-1. Create a bot at [Discord Developer Portal](https://discord.com/developers/applications). Copy the bot token.
-2. Invite the bot to your server (OAuth2 URL Generator, scope: `bot`).
-3. Copy `.env.example` to **`.env` in the repo root** (`discord-mcp/.env`) and set `DISCORD_TOKEN=...` (no quotes). The backend **loads this file on startup** (`python-dotenv`). **Restart** the server after changing `.env`. If the token is already set in the system environment or Cursor MCP `env`, that value wins (`.env` does not override existing vars).
-4. For **local agentic sampling** (when the MCP host does not provide sampling): run [Ollama](https://ollama.com) and optionally set `DISCORD_SAMPLING_BASE_URL` / `DISCORD_SAMPLING_MODEL`. Set `DISCORD_SAMPLING_USE_CLIENT_LLM=1` if you want the **host** LLM to sample and the server handler only as fallback.
+---
 
-## Run
+## What you can do
 
-- **Webapp (backend + dashboard)**: from repo root run `.\start.ps1` or `start.bat`, or from `webapp/`: `.\start.ps1`.
-- **Backend only**: `uv run python -m discord_mcp.server --mode dual --port 10756`
-- **Stdio (MCP only)**: `uv run python -m discord_mcp.server --mode stdio`
+**List servers and post a message**
 
-## Cursor MCP
+> List my Discord guilds, then send "Fleet check-in OK" to channel `#general` in the first server.
 
-- **This repo as workspace root:** `.cursor/mcp.json` registers **discord-mcp** (stdio). Set **`DISCORD_TOKEN`** in that files `env` or rely on your shell environment. Reload MCP / restart Cursor after edits.
-- **Global / multi-root merge:** copy the **`discord-mcp`** block from **`cursor-config-template.json`** into your user MCP JSON (Windows: `%USERPROFILE%\.cursor\mcp.json`). Adjust **`cwd`** to your clone path if you are not using the default `D:/Dev/repos/discord-mcp`.
+**Moderation assist**
 
-## MCP HTTP (remote / Inspector)
+> Show recent audit log entries for guild `123456789` and summarize ban/kick events from the last 24 hours.
 
-- Endpoint: `http://localhost:10756/mcp` (streamable HTTP, FastMCP 3.2)
-- Discovery / manifest: `GET /api/v1/meta`
-- Health: `GET /api/v1/health` (includes sampling status)
+**Search ingested history**
 
-## Tools
+> Ingest the last 50 messages from `#dev`, then answer: what did we decide about the CI workflow?
 
-- **discord(operation=)**  Portmanteau with **36 operations**:
-  - **Discovery:** `list_guilds`, `list_channels`, `list_members`, `get_member`, `get_guild_stats`, `list_active_threads`
-  - **Messaging:** `send_message`, `get_messages`, `edit_message`, `delete_message`, `create_dm`
-  - **Channels & invites:** `create_channel`, `create_guild`, `create_invite`, `list_invites`, `revoke_invite`
-  - **Moderation:** `ban_member`, `unban_member`, `kick_member`, `timeout_member`, `list_bans`, `get_audit_log`
-  - **Roles:** `list_roles`, `create_role`, `delete_role`, `assign_role`, `remove_role`
-  - **Webhooks:** `list_webhooks`, `create_webhook`, `delete_webhook`, `send_webhook`
-  - **Guild assets:** `list_emojis`, `delete_emoji`, `list_stickers`
-  - **RAG:** `rag_ingest`, `rag_query`
-  - `create_guild` requires user OAuth2 (bot 403). `list_members` / `get_member` require **GUILD_MEMBERS** privileged intent.
-- **discord_help(category=, topic=)**  Multi-level help.
-- **discord_agentic_workflow(goal, ctx)**  High-level goal via `ctx.sample` + tools (SEP-1577). Returns a structured **dict** (`success`, `message`, `recommendations` or error fields).
+---
 
-## Prompts (registered)
+## Ports
 
-`discord_quick_start`, `discord_diagnostics`, `discord_moderation_playbook`, `discord_rag_workflow`, `discord_invite_operations`
+| Service | Port | URL |
+|---------|------|-----|
+| Backend (REST + MCP `/mcp`) | 10756 | http://127.0.0.1:10756 |
+| Web dashboard | 10757 | http://127.0.0.1:10757 |
 
-## Skills
-
-Bundled under `src/discord_mcp/skills/<name>/SKILL.md`, exposed as MCP resources (`skill://`). Listed in the dashboard under **Skills** and via `GET /api/v1/skills`.
-
-## Resources
-
-- `resource://discord-mcp/capabilities`  Short capability summary for clients.
-
-## API (REST)
-
-- `GET /api/v1/health`  Health, token_set, rate limits, sampling, `mcp_http_path`
-- `GET /api/v1/meta`  Tools, prompts, resources, skills root, sampling
-- `GET /api/v1/skills`  Bundled skill previews (dashboard)
-- `GET /api/v1/guilds`  List guilds (proxy to tool)
-- `GET /api/v1/guilds/{guild_id}/channels`  List channels
-- Moderation, roles, webhooks, audit, RAG routes under `/api/v1/…`
-- (See OpenAPI at `/docs` for full list.)
-
-## Discord HTTP 429 (API rate limits)
-
-Discord enforces **per-route** limits on the REST API. On **HTTP 429**, the server now **waits** for `retry_after` (from the response body or `Retry-After` header) and **retries** the same request up to **5** times before returning an error. If you still see 429 after that, slow down (e.g. fewer parallel message fetches, smaller RAG ingest batches) or wait a minuteespecially if `"global": true` appears in Discords response (rare; indicates a broader limit).
-
-## Safety and rate limits (anti-spam)
-
-Write operations are rate-limited so the bot is not usable as a spambot:
-
-- **Messages**: max 10/min global, max 3/min per channel, min 5s between sends (configurable).
-- **Channels**: max 5 created per minute.
-- **Invites**: max 5 created per minute (`DISCORD_RATE_LIMIT_INVITES_PER_MINUTE`).
-- **Message length**: capped at 2000 (Discord max); override with `DISCORD_MAX_MESSAGE_LENGTH`.
-
-Env: `DISCORD_RATE_LIMIT_MESSAGES_PER_MINUTE`, `DISCORD_RATE_LIMIT_MESSAGES_PER_CHANNEL_PER_MINUTE`, `DISCORD_RATE_LIMIT_CHANNELS_PER_MINUTE`, `DISCORD_MAX_MESSAGE_LENGTH`, `DISCORD_MIN_MESSAGE_INTERVAL_SECONDS`. When a limit is hit, the tool returns `success: false`, `rate_limited: true`, and an explanatory `error`. Current config is in `GET /api/v1/health` under `rate_limit`.
+---
 
 ## Documentation
 
-- **[docs/README.md](docs/README.md)**  doc index  
-- **[docs/TECHNICAL.md](docs/TECHNICAL.md)**  architecture, env, Discord 429, MCP `/mcp`  
-- **[CHANGELOG.md](CHANGELOG.md)**  release notes  
+| Doc | Contents |
+|-----|----------|
+| [INSTALL.md](INSTALL.md) | All install methods, prerequisites, verify steps |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Bot token, env vars, sampling, rate limits |
+| [docs/TOOLS.md](docs/TOOLS.md) | MCP tools, operations, prompts, skills |
+| [docs/WEBAPP.md](docs/WEBAPP.md) | Dashboard pages and REST API overview |
+| [docs/CURSOR-MCP.md](docs/CURSOR-MCP.md) | Cursor / Claude Desktop MCP wiring |
+| [docs/TECHNICAL.md](docs/TECHNICAL.md) | Architecture, transports, Discord 429 behavior |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Local dev, lint, test, CI |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common errors and fixes |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes |
 
-## Standards
+Fleet central mirror: [mcp-central-docs/projects/discord-mcp](https://github.com/sandraschi/mcp-central-docs/tree/master/projects/discord-mcp)
 
-- FastMCP 3.2: instructions, sampling handler, skills provider, strict validation, streamable HTTP mount.
-- CI: ruff + pytest on Windows (`.github/workflows/ci.yml`).
-- Webapp: `start.ps1`, ports 10756/10757, dark glass layout, top bar status, activity log, Tools / Skills / Apps pages.
+---
 
+## Requirements
 
-## 🛡️ Industrial Quality Stack
+- **Windows** (primary; fleet dev target) or macOS/Linux with Python 3.12+
+- **[uv](https://docs.astral.sh/uv/)** for Python deps · **Node 20+** for the webapp
+- **Discord bot token** — free at [Discord Developer Portal](https://discord.com/developers/applications)
+- Optional: [Ollama](https://ollama.com) for local agentic sampling when the MCP host has no LLM
 
-This project adheres to **SOTA 14.1** industrial standards for high-fidelity agentic orchestration:
+---
 
-- **Python (Core)**: [Ruff](https://astral.sh/ruff) for linting and formatting. Zero-tolerance for `print` statements in core handlers (`T201`).
-- **Webapp (UI)**: [Biome](https://biomejs.dev/) for sub-millisecond linting. Strict `noConsoleLog` enforcement.
-- **Protocol Compliance**: Hardened `stdout/stderr` isolation to ensure crash-resistant JSON-RPC communication.
-- **Automation**: [Justfile](./justfile) recipes for all fleet operations (`just lint`, `just test`, `just fix`, `just dev`).
-- **Security**: Automated audits via `bandit` and `safety`.
+**Repository:** [github.com/sandraschi/discord-mcp](https://github.com/sandraschi/discord-mcp)

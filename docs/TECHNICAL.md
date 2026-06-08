@@ -7,16 +7,9 @@
 - **Single process (HTTP mode):** One **FastAPI** app serves REST (`/api/v1/…`, OpenAPI `/docs`) and mounts **FastMCP** streamable HTTP at **`/mcp`**.
 - **Stdio mode:** `python -m discord_mcp.server --mode stdio` runs **only** the MCP server (`mcp.run_stdio_async()`), no REST.
 - **Portmanteau:** `discord(operation=…)` in `portmanteau.py` — **36 operations** against Discord REST v10 via **httpx**.
-- **Agentic:** `agentic.py` uses `ctx.sample()` with small async tool functions that call the same REST helpers (SEP-1577).
+- **Agentic:** `agentic.py` uses `ctx.sample()` with async tool functions that call the same REST helpers (SEP-1577).
 
-## Environment
-
-| Variable | Role |
-|----------|------|
-| `DISCORD_TOKEN` | Bot token (`Bot …` prefix added in code). Loaded from **repo-root `.env`** via **python-dotenv** at import time. Does **not** override an already-set OS/Cursor env. |
-| `DISCORD_SAMPLING_*` | Server-side OpenAI-compatible LLM for sampling (default Ollama URL/model). |
-| `DISCORD_SAMPLING_USE_CLIENT_LLM` | If `1`/`true`/`yes`, sampling handler is **fallback** only; host LLM preferred. |
-| `DISCORD_RATE_LIMIT_*` | In-repo anti-spam limits (messages, channels, invites). |
+Configuration and env vars: **[CONFIGURATION.md](./CONFIGURATION.md)** · Tool list: **[TOOLS.md](./TOOLS.md)**
 
 ## Discord API HTTP 429
 
@@ -26,14 +19,22 @@ This is **independent** of in-repo `DISCORD_RATE_LIMIT_*` (those gate `send_mess
 
 ## MCP clients
 
-- **Cursor / Claude:** stdio — `.cursor/mcp.json` or user MCP JSON; set `cwd` to repo root.
-- **HTTP:** Base URL `http://127.0.0.1:10756`, path **`/mcp`** (streamable HTTP).
+- **Cursor / Claude:** stdio — see [CURSOR-MCP.md](./CURSOR-MCP.md)
+- **HTTP:** Base URL `http://127.0.0.1:10756`, path **`/mcp`** (streamable HTTP)
 
 ## Webapp
 
 - **Vite** dev server **10757**; `vite.config.ts` proxies **`/api`** → **10756**.
-- **Launcher bugfix:** `webapp/start.ps1` sets repo root to **`Split-Path -Parent $PSScriptRoot`** (one level above `webapp`). Central launcher **`mcp-central-docs/starts/discord-start.bat`** uses `cd` to `..\..\discord-mcp\webapp` so it works when run from `starts/` (symlinked `.bat` broke `%dp0`).
+- **Launcher:** `webapp/start.ps1` sets repo root to **`Split-Path -Parent $PSScriptRoot`**. Fleet launcher **`mcp-central-docs/starts/discord-start.bat`** uses `cd` to `..\..\discord-mcp\webapp`.
+
+Dashboard routes and REST map: **[WEBAPP.md](./WEBAPP.md)**
 
 ## Skills
 
 Bundled folders under `src/discord_mcp/skills/<name>/SKILL.md` are exposed via FastMCP **SkillsDirectoryProvider** as MCP resources (`skill://…`).
+
+## Security notes
+
+- Uvicorn binds **127.0.0.1** only (S104).
+- Sampling handler logs warnings instead of silent bare except (S110).
+- In-repo write rate limits — see [CONFIGURATION.md](./CONFIGURATION.md#rate-limits-in-repo-anti-spam).

@@ -6,6 +6,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Version
 
 ## [Unreleased]
 
+### Changed
+
+- **Documentation:** Fleet README structure — short README with TOC; detailed guides in `docs/` (CONFIGURATION, TOOLS, WEBAPP, CURSOR-MCP, DEVELOPMENT, TROUBLESHOOTING); INSTALL.md Options A–D.
+
 ## [0.2.0] - 2026-06-08
 
 ### Added
