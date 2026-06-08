@@ -12,7 +12,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Version
 
 - **36 portmanteau operations:** moderation (`ban_member`, `unban_member`, `kick_member`, `timeout_member`, `list_bans`), messaging (`edit_message`, `delete_message`, `create_dm`), roles, webhooks, emojis, stickers, `get_audit_log`.
 - **30 REST endpoints** mirroring new operations under `/api/v1/…` (OpenAPI at `/docs`).
-- **CI:** GitHub Actions — ruff lint, pytest, Playwright e2e; native Tauri build on version tags.
+- **CI:** GitHub Actions on Windows — ruff lint, pytest.
 - **Tests:** rate-limit and REST health/meta/skills coverage (14 pass, 1 xfail for `/mcp` lifespan).
 - **Playwright e2e:** dashboard and API smoke tests in `webapp/e2e/`.
 - **Tauri native scaffold** under `native/` (release build on `v*` tags).

@@ -123,7 +123,7 @@ Env: `DISCORD_RATE_LIMIT_MESSAGES_PER_MINUTE`, `DISCORD_RATE_LIMIT_MESSAGES_PER_
 ## Standards
 
 - FastMCP 3.2: instructions, sampling handler, skills provider, strict validation, streamable HTTP mount.
-- CI: ruff + pytest + Playwright e2e (`.github/workflows/ci.yml`).
+- CI: ruff + pytest on Windows (`.github/workflows/ci.yml`).
 - Webapp: `start.ps1`, ports 10756/10757, dark glass layout, top bar status, activity log, Tools / Skills / Apps pages.
 
 
