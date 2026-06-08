@@ -35,8 +35,27 @@ This opens an interactive dashboard showing all available commands. Run `just bo
 
 ### Manual Setup
 
-If you don't have `just` installed:
+If you don't have [`just`](https://github.com/casey/just) installed:
 
+```powershell
+winget install Casey.Just
+```
+
+Then run `just bootstrap` and `just serve` as above.
+
+**Without `just`** — same stack, manual steps:
+
+```powershell
+git clone https://github.com/sandraschi/discord-mcp
+cd discord-mcp
+uv sync --all-extras
+Set-Location webapp
+npm install
+Set-Location ..
+.\start.ps1
+```
+
+Opens backend **10756** and dashboard **10757**. Full options and troubleshooting: **[INSTALL.md](INSTALL.md)**.
 
 ## Setup
 
