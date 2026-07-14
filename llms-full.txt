@@ -1,0 +1,92 @@
+# discord-mcp Full Documentation
+
+FastMCP 3.2 Discord MCP server — 36 portmanteau operations, sampling, agentic workflow, and SOTA webapp.
+
+## Overview
+
+Connect your Discord bot to MCP clients. List servers, send messages, moderate members, search message history with RAG, and run agentic workflows from Cursor or Claude Desktop.
+
+**Ports:** Backend 10756, Frontend 10757
+
+## Tools
+
+All Discord operations are consolidated into a single portmanteau tool:
+
+### discord(operation=...)
+
+| Operation | Description |
+|-----------|-------------|
+| list_guilds | List bot guilds |
+| list_channels | List channels in a guild |
+| send_message | Send a message to a channel |
+| get_messages | Get recent messages from a channel |
+| edit_message | Edit a bot-sent message |
+| delete_message | Delete a bot-sent message |
+| list_active_threads | List active threads in a channel |
+| create_channel | Create a channel in a guild |
+| create_dm | Create a DM channel with a user |
+| create_guild | Create a server (user OAuth2 only) |
+| create_invite | Create an invite link |
+| list_invites | List guild invites |
+| revoke_invite | Revoke an invite |
+| list_members | List guild members (requires GUILD_MEMBERS intent) |
+| get_member | Get one guild member (requires GUILD_MEMBERS intent) |
+| ban_member | Ban a user from a guild (requires BAN_MEMBERS) |
+| unban_member | Remove a ban |
+| kick_member | Kick a user from a guild (requires KICK_MEMBERS) |
+| timeout_member | Timeout a member |
+| list_roles | List guild roles |
+| create_role | Create a guild role |
+| delete_role | Delete a guild role |
+| assign_role | Assign a role to a member |
+| remove_role | Remove a role from a member |
+| get_guild_stats | Guild stats |
+| get_channel_stats | Channel stats |
+| get_audit_log | Get audit log entries (requires VIEW_AUDIT_LOG) |
+| list_webhooks | List guild webhooks |
+| create_webhook | Create a webhook |
+| execute_webhook | Execute a webhook |
+| rag_ingest | Ingest channel messages into LanceDB for RAG |
+| rag_query | Semantic search over ingested messages |
+
+### discord_agentic_workflow(goal, ctx)
+
+Multi-step agentic task using sampling.
+
+### discord_help(topic)
+
+Contextual help for any tool topic.
+
+## Env Vars
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| DISCORD_TOKEN | — | Bot token from Discord Developer Portal |
+| PORT | 10756 | Backend port |
+| DISCORD_SAMPLING_BASE_URL | http://127.0.0.1:11434/v1 | OpenAI-compatible sampling endpoint |
+| DISCORD_SAMPLING_MODEL | llama3.2 | Model for sampling |
+| DISCORD_SAMPLING_USE_CLIENT_LLM | 0 | Prefer host LLM for sampling |
+| DISCORD_RATE_LIMIT_MESSAGES_PER_MINUTE | 10 | Max messages per minute |
+| DISCORD_COMMS_AUTOSTART | 0 | Autostart inbound watcher |
+| DISCORD_COMMS_CHANNELS | — | Comma-separated channel IDs to watch |
+| DISCORD_TAURI | 0 | Set when running inside Tauri WebView |
+
+## Architecture
+
+- FastAPI backend with FastMCP 3.2 dual transport (stdio + HTTP)
+- Portmanteau tool: `discord(operation=...)` dispatches internally
+- LanceDB for RAG (optional, requires sentence-transformers)
+- Rate limiter with per-channel and global limits
+- Comms lane: background message watcher with webhook delivery
+- Sampling handler (Ollama or client LLM) for agentic workflows
+- Skills directory at `src/discord_mcp/skills/`
+- FastAPI app at `src/discord_mcp/server.py`
+- Webapp at `webapp/` (Vite + React + Tailwind)
+
+## Troubleshooting
+
+- **Discord 429 rate limits**: Server auto-retries with exponential backoff
+- **Missing intents**: Ensure GUILD_MEMBERS, MESSAGE_CONTENT intents in Developer Portal
+- **Token invalid**: Regenerate bot token, update .env
+- **No guilds found**: Bot must be invited to at least one server
+- **Webapp blank**: Ensure backend is running on port 10756, frontend 10757

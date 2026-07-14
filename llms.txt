@@ -1,0 +1,16 @@
+# discord-mcp
+
+## LLM Context
+
+> FastMCP 3.2 Discord bridge: 36 portmanteau operations, LanceDB RAG, sampling-based agentic workflows, bundled skills.
+
+- [llms-full.txt](llms-full.txt) — full tool documentation, architecture, env vars, troubleshooting
+- [README.md](README.md) — quick start and feature overview
+- [INSTALL.md](INSTALL.md) — install paths for all IDEs and Claude Desktop
+- [docs/TECHNICAL.md](docs/TECHNICAL.md) — architecture, env vars, Discord 429 behavior
+- [docs/CONFIGURATION.md](docs/CONFIGURATION.md) — env vars and setup
+- [docs/TOOLS.md](docs/TOOLS.md) — full tool reference
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — dev workflow and testing
+- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — common issues
+- [docs/comms-watcher.md](docs/comms-watcher.md) — inbound message watcher
+- [CHANGELOG.md](CHANGELOG.md) — release history

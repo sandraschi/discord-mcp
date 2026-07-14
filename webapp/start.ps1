@@ -1,9 +1,9 @@
-﻿param(
+param(
     [switch]$Headless,
     [switch]$BackendOnly,
     [switch]$FrontendOnly,
-    [switch]$NoBrowser
-)
+    [switch]$NoBrowser,
+    [switch]$ReuseIfRunning)
 
 $FleetStartPath = Join-Path $Root "scripts\FleetStartMode.ps1"
 if (-not (Test-Path -LiteralPath $FleetStartPath)) {
@@ -14,11 +14,23 @@ if (-not (Test-Path -LiteralPath $FleetStartPath)) {
 $FleetStart = Initialize-FleetStartMode @PSBoundParameters
 Enter-FleetHeadlessConsole -Headless:$Headless -BackendOnly:$BackendOnly
 
+$portResolve = @{
+    Ports      = @($BackendPort, $FrontendPort)
+    Label      = "discord-mcp"
+    AllowReuse = $ReuseIfRunning
+}
+if ($ReuseIfRunning) {
+    $portResolve.HealthChecks = @{
+        $BackendPort = "http://127.0.0.1:$BackendPort/health"
+        $FrontendPort = "http://127.0.0.1:$FrontendPort/"
+    }
+}
+$portState = Resolve-FleetPortConflict @portResolve
+if ($portState.Action -eq 'Blocked') { exit 1 }
+if ($portState.Reuse) { return }
 $BackendPort = 10756
 $FrontendPort = 10757
-Stop-FleetPortSquatters -Ports @($BackendPort, $FrontendPort) -Label "discord-mcp"
 
-if (-not (Assert-FleetPortsAvailable -Ports @($BackendPort, $FrontendPort) -Label "discord-mcp")) { exit 1 }
 
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root

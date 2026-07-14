@@ -1,0 +1,14 @@
+{
+  "product_name": "Discord MCP",
+  "install_dir": "%LOCALAPPDATA%\\Discord MCP",
+  "operator_exe": "discord-mcp-native.exe",
+  "backend_process_names": ["Discord MCP", "discord-mcp-backend"],
+  "backend_port": 10756,
+  "health_path": "/api/v1/health",
+  "diagnostics_path": "/api/v1/diagnostics",
+  "feature_smoke_path": "/api/v1/health",
+  "window_title_re": "Discord MCP",
+  "nsis_glob": "native/target/release/bundle/nsis/Discord MCP_*_x64-setup.exe",
+  "bridge_ok_text": "ok",
+  "uninstall_registry_filter": "*Discord MCP*"
+}

@@ -6,6 +6,21 @@
 2. **Bot** tab → **Reset Token** → copy the token.
 3. **OAuth2 → URL Generator** → scopes: `bot` → pick permissions (Send Messages, Read Message History, Manage Messages as needed) → invite to your server.
 4. For `list_members` / `get_member`: enable **Server Members Intent** under **Bot → Privileged Gateway Intents**.
+5. For comms watcher (gateway mode): enable **Message Content Intent**.
+
+## Comms watcher (inbound)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DISCORD_COMMS_AUTOSTART` | — | `1` to start watcher on server boot |
+| `DISCORD_COMMS_CHANNELS` | — | Comma-separated channel IDs to watch |
+| `DISCORD_COMMS_WEBHOOK_URL` | — | robofang/fleet-agent URL (e.g. `http://127.0.0.1:10956/api/alerts`) |
+| `DISCORD_COMMS_MODE` | `gateway` | `gateway` or `poll` |
+| `DISCORD_COMMS_INTERVAL` | `30` | Poll interval (poll mode) |
+| `DISCORD_COMMS_AUTO_REPLY` | — | `1` for template auto-reply in channel |
+| `DISCORD_COMMS_AUTO_REPLY_TEMPLATE` | — | Template with `{author}`, `{content}`, `{channel_id}` |
+
+See [comms-watcher.md](./comms-watcher.md) and [robofang-integration.md](./robofang-integration.md).
 
 ## Environment variables
 

@@ -1,0 +1,19 @@
+# discord-mcp Cursor Rules
+
+## Session Context (Discord MCP)
+
+You have access to a Discord bot bridge with 36 operations via a portmanteau tool, LanceDB RAG, and agentic workflows.
+
+**Before starting work:**
+1. List available guilds: discord(operation="list_guilds")
+2. Check recent messages in a channel: discord(operation="get_messages", channel_id="...", limit=10)
+
+**At end of work:**
+- Clean up test messages if any were sent
+- Document any rate limit changes
+
+## Key Commands
+- `just serve` — start full stack
+- `just lint` — run ruff + biome
+- `just test` — run tests
+- `just build-native` — build Tauri NSIS installer

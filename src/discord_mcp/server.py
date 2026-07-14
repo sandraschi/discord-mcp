@@ -37,7 +37,14 @@ from fastmcp.server.providers.skills import SkillsDirectoryProvider  # noqa: E40
 from pydantic import BaseModel  # noqa: E402
 from pydantic import Field as PydanticField  # noqa: E402
 
+from .activity_log import ActivityLog, create_log_router  # noqa: E402
 from .agentic import discord_agentic_workflow  # noqa: E402
+from .message_watcher import (  # noqa: E402
+    maybe_autostart_from_env,
+    message_watcher_status,
+    start_message_watcher,
+    stop_message_watcher,
+)
 from .portmanteau import _resolve_discord_token, discord_tool  # noqa: E402
 from .rate_limit import get_rate_limit_config  # noqa: E402
 from .sampling import DiscordSamplingHandler  # noqa: E402
@@ -250,6 +257,63 @@ mcp.tool()(discord_help)
 mcp.tool()(discord_agentic_workflow)
 
 
+async def start_message_watcher_tool(
+    mode: Annotated[str, PydanticField(description="gateway (real-time) or poll (REST).")] = "gateway",
+    interval: Annotated[int, PydanticField(description="Poll interval seconds (poll mode only).", ge=10)] = 30,
+    webhook_url: Annotated[
+        str, PydanticField(description="Webhook URL for robofang/fleet-agent (e.g. http://127.0.0.1:10956/api/alerts).")
+    ] = "",
+    channels: Annotated[
+        str,
+        PydanticField(
+            description='JSON list of channels, e.g. [{"channel_id":"123","guild_id":"456"}].',
+        ),
+    ] = "[]",
+    auto_reply: Annotated[
+        bool, PydanticField(description="Send template reply in-channel on inbound messages.")
+    ] = False,
+    auto_reply_template: Annotated[
+        str, PydanticField(description="Reply template with {author}, {content}, {channel_id}.")
+    ] = "",
+) -> dict:
+    """Start Discord Gateway/poll watcher — inbound messages → webhook + optional auto-reply.
+
+    Comms lane: fires `new_discord_message` JSON to robofang or fleet-agent.
+    Enable MESSAGE CONTENT intent in Discord Developer Portal for gateway mode.
+    """
+    import json as _json
+
+    try:
+        ch_list = _json.loads(channels) if isinstance(channels, str) else channels
+    except _json.JSONDecodeError:
+        return {"running": False, "error": "channels must be valid JSON array"}
+    if not isinstance(ch_list, list):
+        return {"running": False, "error": "channels must be a JSON array"}
+    return start_message_watcher(
+        mode=mode,
+        interval=interval,
+        webhook_url=webhook_url,
+        channels=ch_list,
+        auto_reply=auto_reply,
+        auto_reply_template=auto_reply_template,
+    )
+
+
+async def stop_message_watcher_tool() -> dict:
+    """Stop the Discord message watcher."""
+    return stop_message_watcher()
+
+
+async def message_watcher_status_tool() -> dict:
+    """Check Discord message watcher status."""
+    return message_watcher_status()
+
+
+mcp.tool()(start_message_watcher_tool)
+mcp.tool()(stop_message_watcher_tool)
+mcp.tool()(message_watcher_status_tool)
+
+
 @mcp.prompt
 def discord_quick_start() -> str:
     """Setup and connect instructions for Discord MCP."""
@@ -326,13 +390,31 @@ def discord_capabilities_resource() -> str:
 async def lifespan(app: FastAPI):
     logger.info("Discord MCP REST + MCP mount starting")
     _state.token_set = bool(_resolve_discord_token())
+    await maybe_autostart_from_env()
     yield
+    stop_message_watcher()
     logger.info("Discord MCP shutting down")
 
 
 app = FastAPI(title="Discord MCP", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+        allow_origins=[
+            "http://127.0.0.1:10756",
+            "http://localhost:10756",
+            "http://goliath:10756",
+        "http://tauri.localhost",
+        "https://tauri.localhost",
+        "tauri://localhost",
+    ],
+    allow_origin_regex=r"https?://(?:[a-zA-Z0-9-]+\.ts\.net|.*?\.tail-[a-f0-9]+\.ts\.net|tauri\.localhost|localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|100\.\d{1,3}\.\d{1,3}\.\d{1,3})(?::\d+)?$|^tauri://localhost$",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
+mcp_log = ActivityLog()
+app.include_router(create_log_router(mcp_log), prefix="/api")
 
 @app.get("/api/v1/health")
 async def health():
@@ -344,6 +426,7 @@ async def health():
         "sampling": sampling_handler.status(),
         "sampling_use_client_llm_preferred": _USE_CLIENT_SAMPLING,
         "mcp_http_path": "/mcp",
+        "comms_watcher": message_watcher_status(),
         "timestamp": datetime.now().isoformat(),
     }
 
@@ -359,6 +442,9 @@ async def meta():
             "discord",
             "discord_help",
             "discord_agentic_workflow",
+            "start_message_watcher_tool",
+            "stop_message_watcher_tool",
+            "message_watcher_status_tool",
         ],
         "operations": [
             "list_guilds",
@@ -527,6 +613,15 @@ class WebhookBody(BaseModel):
 
 class SendWebhookBody(BaseModel):
     content: str
+
+
+class CommsWatcherStartBody(BaseModel):
+    mode: str = "gateway"
+    interval: int = 30
+    webhook_url: str = ""
+    channels: list[dict] = []
+    auto_reply: bool = False
+    auto_reply_template: str = ""
 
 
 @app.post("/api/v1/agentic")
@@ -872,6 +967,9 @@ async def api_audit_log(guild_id: str, limit: int = 50, user_id: str | None = No
 
 
 # --- RAG ---
+
+
+@app.post("/api/v1/rag/ingest")
 async def api_rag_ingest(body: RagIngestBody = Body(...)):
     out = await discord_tool(
         ctx=None,
@@ -900,6 +998,34 @@ async def api_rag_query(body: RagQueryBody = Body(...)):
     if not out.get("success"):
         raise HTTPException(status_code=502, detail=out.get("error", "RAG query failed"))
     return out
+
+
+# --- Comms watcher (inbound → webhook / auto-reply) ---
+
+
+@app.post("/api/v1/comms/watcher/start")
+async def api_comms_watcher_start(body: CommsWatcherStartBody = Body(...)):
+    out = start_message_watcher(
+        mode=body.mode,
+        interval=body.interval,
+        webhook_url=body.webhook_url,
+        channels=body.channels,
+        auto_reply=body.auto_reply,
+        auto_reply_template=body.auto_reply_template,
+    )
+    if not out.get("running") and out.get("error"):
+        raise HTTPException(status_code=400, detail=out["error"])
+    return out
+
+
+@app.post("/api/v1/comms/watcher/stop")
+async def api_comms_watcher_stop():
+    return stop_message_watcher()
+
+
+@app.get("/api/v1/comms/watcher/status")
+async def api_comms_watcher_status():
+    return message_watcher_status()
 
 
 app.mount("/mcp", mcp.http_app(transport="streamable-http", path="/"))

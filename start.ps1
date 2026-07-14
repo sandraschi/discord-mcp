@@ -1,9 +1,24 @@
-﻿param([switch]$Headless, [switch]$BackendOnly, [switch]$NoBrowser)
+param([switch]$Headless, [switch]$BackendOnly, [switch]$NoBrowser,
+    [switch]$ReuseIfRunning)
 $ErrorActionPreference = "Stop"
 $ScriptRoot = $PSScriptRoot
 $BackendPort = 10756
 $FrontendPort = 10757
 
+$portResolve = @{
+    Ports      = @($BackendPort, $FrontendPort)
+    Label      = "discord-mcp"
+    AllowReuse = $ReuseIfRunning
+}
+if ($ReuseIfRunning) {
+    $portResolve.HealthChecks = @{
+        $BackendPort = "http://127.0.0.1:$BackendPort/api/v1/health"
+        $FrontendPort = "http://127.0.0.1:$FrontendPort/"
+    }
+}
+$portState = Resolve-FleetPortConflict @portResolve
+if ($portState.Action -eq 'Blocked') { exit 1 }
+if ($portState.Reuse) { return }
 # --- SOTA Headless Standard ---
 if ($Headless -and ($Host.UI.RawUI.WindowTitle -notmatch 'Hidden')) {
     Start-Process pwsh -ArgumentList '-NoProfile', '-File', $PSCommandPath, '-Headless' -WindowStyle Hidden
@@ -18,9 +33,11 @@ if (-not (Test-Path -LiteralPath $FleetStartPath)) {
     exit 1
 }
 . $FleetStartPath
-Stop-FleetPortSquatters -Ports @($BackendPort, $FrontendPort) -Label "discord-mcp"
 
-if (-not (Assert-FleetPortsAvailable -Ports @($BackendPort, $FrontendPort) -Label "discord-mcp")) { exit 1 }
+
+Write-Host "Syncing Python deps (uv sync) ..." -ForegroundColor Cyan
+Push-Location $ScriptRoot
+try { uv sync; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } finally { Pop-Location }
 
 Write-Host "Starting discord-mcp..." -ForegroundColor Cyan
 
@@ -60,6 +77,11 @@ if (-not $NoBrowser) {
 }
 
 Write-Host "Starting Vite frontend on port $FrontendPort..." -ForegroundColor Green
+for ($i = 0; $i -lt 10; $i++) {
+    $listeners = Get-NetTCPConnection -LocalPort $FrontendPort -ErrorAction SilentlyContinue
+    if (-not $listeners) { break }
+    Start-Sleep -Milliseconds 500
+}
 Set-Location $WebRoot
 npm run dev -- --port $FrontendPort --host --strictPort
 

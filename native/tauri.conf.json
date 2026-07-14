@@ -9,6 +9,7 @@
   },
   "app": {
     "windows": [{
+      "label": "main",
       "title": "Discord MCP",
       "width": 1100,
       "height": 750,
@@ -27,7 +28,15 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/discord-mcp-backend"]
+    "resources": ["resources/discord-mcp-backend.exe",
+            "resources/.env"],
+    "windows": {
+      "webviewInstallMode": { "type": "skip" },
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "./windows/hooks.nsh",
+}
+    }
   },
   "plugins": {
     "shell": { "open": true },
@@ -35,3 +44,5 @@
     "process": { "all": true }
   }
 }
+
+
