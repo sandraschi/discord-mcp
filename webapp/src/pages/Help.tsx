@@ -220,6 +220,10 @@ ${S.p("Discord API rate limits (HTTP 429 with retry_after): the server auto-retr
 ${S.h2("Port conflict?")}
 ${S.p("Ports are 10756 (backend) and 10757 (frontend). If something else is using them, kill zombies with: Get-NetTCPConnection -LocalPort 10756 | Stop-Process -Id {OwningProcess} -Force. Then re-run start.ps1.")}
 
+${S.h2("Is AI/LLM usage allowed on Discord?")}
+${S.p("Yes — bots can use LLMs to process messages, moderate, search history, and generate responses. This is what discord-mcp does: LLM as a tool to serve your community.")}
+${S.p("Not allowed: scraping messages for external AI training, impersonating users with AI, spamming with LLM-generated floods, or selling Discord data via AI services. Our rate limits prevent the spam case. Keep LLM use scoped to your own servers and you're fine.")}
+
 ${S.h2("Backend won't start?")}
 ${S.p("Ensure all dependencies are installed. Run uv sync from the repo root. Check that Python 3.12+ is on PATH. Verify .env exists with DISCORD_TOKEN set. The backend logs startup errors to the console window.")}
 

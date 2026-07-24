@@ -119,6 +119,26 @@ Fleet central mirror: [mcp-central-docs/projects/discord-mcp](https://github.com
 
 ---
 
+## AI & LLM Policy on Discord
+
+Discord allows bots to use LLMs for moderation, search, summaries, and community tools. Using discord-mcp (reading accessible messages, RAG search, LLM-generated responses in your own servers) is within Discord's permitted use.
+
+**Allowed:**
+- Bots that use LLMs to process, summarize, search, or respond to messages
+- Auto-moderation, content review, and audit-log analysis via LLMs
+- RAG (vector search) over your own channel history
+- Agentic workflows that call tools and generate replies
+
+**Not allowed (can get your bot suspended):**
+- **Scraping** user messages for external AI training data — Discord prohibits crawling for model training
+- **Impersonating** users with AI-generated content mimicking real people
+- **Spamming** with LLM-generated flood messages (our rate limits prevent this)
+- **Selling access** to Discord data through AI services
+
+**Bottom line:** LLM as a tool to serve your community = fine. Discord as a free training data source = not fine. discord-mcp is designed for the former — all operations are scoped to channels the bot can see, with rate limits that prevent abuse.
+
+---
+
 ## Rate Limits & Anti-Spam
 
 The server enforces two layers of rate limiting to prevent abuse and Discord API bans.
