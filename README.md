@@ -87,6 +87,7 @@ Other install paths (just, Cursor, Claude Desktop, no-git): **[INSTALL.md](INSTA
 | [docs/WEBAPP.md](docs/WEBAPP.md) | Dashboard pages and REST API overview |
 | [docs/CURSOR-MCP.md](docs/CURSOR-MCP.md) | Cursor / Claude Desktop MCP wiring |
 | [docs/TECHNICAL.md](docs/TECHNICAL.md) | Architecture, transports, Discord 429 behavior |
+| [docs/PLATFORMS.md](docs/PLATFORMS.md) | Discord vs Slack, Reddit, Telegram, Teams |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Local dev, lint, test, CI |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common errors and fixes |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes |

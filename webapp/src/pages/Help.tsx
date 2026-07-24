@@ -35,6 +35,9 @@ ${S.h2("Rate Limits")}
 ${S.p("Discord enforces per-route rate limits (HTTP 429). This server automatically retries up to 5 times with exponential backoff reading Discord's retry_after header. Additionally, the server applies its own anti-spam limits per-channel and globally — you can tune these via DISCORD_RATE_LIMIT_* env vars.")}
 ${S.h2("API Base URL")}
 ${S.p("All Discord REST API calls go to https://discord.com/api/v10. The MCP server proxies these calls, handling auth (Bot prefix), rate limits, and error formatting so MCP clients interact with a clean portmanteau interface.")}
+
+${S.h2("Discord vs Other Platforms")}
+${S.p("Compared to Slack, Reddit, Telegram, and Teams, Discord has the best bot API for MCP-style automation — free servers, rich intents, real-time gateway, audit log, and no per-seat cost. See docs/PLATFORMS.md for a full comparison.")}
 `,
   },
   "What You Can Do": {
