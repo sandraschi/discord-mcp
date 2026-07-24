@@ -1,6 +1,6 @@
-import { AlertCircle, Download, Hash, RefreshCw, Star } from "lucide-react";
+import { AlertCircle, Download, Hash, MessageSquare, Plus, RefreshCw, Star, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   api,
   type Channel,
@@ -20,6 +20,7 @@ const CHANNEL_TYPE_NAMES: Record<number, string> = {
 
 export default function Channels() {
   const location = useLocation();
+  const navigate = useNavigate();
   const stateGuildId = (location.state as { guildId?: string } | null)?.guildId;
   const [guilds, setGuilds] = useState<Guild[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -70,6 +71,39 @@ export default function Channels() {
       { guild_id: selectedGuildId, channels, count: channels.length },
       `discord-channels-${selectedGuildId}.json`,
     );
+  };
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newType, setNewType] = useState(0);
+  const [creating, setCreating] = useState(false);
+  const [createErr, setCreateErr] = useState<string | null>(null);
+
+  const handleCreate = async () => {
+    if (!selectedGuildId || !newName.trim()) return;
+    setCreating(true);
+    setCreateErr(null);
+    try {
+      await api.createChannel(selectedGuildId, newName.trim(), newType);
+      setNewName("");
+      setShowCreate(false);
+      const r = await api.getChannels(selectedGuildId);
+      setChannels(r.channels ?? []);
+    } catch (e) {
+      setCreateErr(e instanceof Error ? e.message : "Create failed");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (channelId: string) => {
+    if (!window.confirm("Delete this channel permanently?")) return;
+    try {
+      await api.deleteChannel(channelId);
+      setChannels((prev) => prev.filter((c) => c.id !== channelId));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Delete failed");
+    }
   };
 
   const guildName = guilds.find((g) => g.id === selectedGuildId)?.name ?? "";
@@ -137,9 +171,54 @@ export default function Channels() {
             >
               <Download className="w-4 h-4" /> JSON
             </button>
+            <button
+              type="button"
+              onClick={() => setShowCreate(!showCreate)}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600/80 hover:bg-indigo-500 text-white text-sm"
+            >
+              <Plus className="w-4 h-4" /> Create
+            </button>
           </div>
         )}
       </div>
+
+      {showCreate && selectedGuildId && (
+        <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-200">New Channel</h3>
+            <button type="button" onClick={() => setShowCreate(false)} className="text-slate-500 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="channel-name"
+              className="rounded-xl bg-[#1a1a1e] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px] flex-1"
+            />
+            <select
+              value={newType}
+              onChange={(e) => setNewType(Number(e.target.value))}
+              className="rounded-xl bg-[#1a1a1e] border border-white/10 px-4 py-2 text-slate-200"
+            >
+              <option value={0}>Text</option>
+              <option value={2}>Voice</option>
+              <option value={5}>Announcement</option>
+            </select>
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={creating || !newName.trim()}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm disabled:opacity-50"
+            >
+              {creating ? "Creating..." : "Create"}
+            </button>
+          </div>
+          {createErr && <p className="text-xs text-red-400">{createErr}</p>}
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center gap-2 text-slate-400">
@@ -156,6 +235,7 @@ export default function Channels() {
                 <th className="p-4 text-sm font-bold text-slate-300">Name</th>
                 <th className="p-4 text-sm font-bold text-slate-300">ID</th>
                 <th className="p-4 text-sm font-bold text-slate-300">Type</th>
+                <th className="p-4 w-12"></th>
               </tr>
             </thead>
             <tbody>
@@ -183,12 +263,32 @@ export default function Channels() {
                       />
                     </button>
                   </td>
-                  <td className="p-4 font-medium text-slate-200">{c.name}</td>
+                  <td className="p-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate("/messages", { state: { channelId: c.id } })}
+                      className="font-medium text-slate-200 hover:text-indigo-300 transition-colors flex items-center gap-1.5"
+                      title="View messages"
+                    >
+                      {c.type === 0 && <MessageSquare className="w-3.5 h-3.5 text-slate-500" />}
+                      {c.name}
+                    </button>
+                  </td>
                   <td className="p-4 text-slate-400 font-mono text-sm">
                     {c.id}
                   </td>
                   <td className="p-4 text-slate-400">
                     {CHANNEL_TYPE_NAMES[c.type] ?? c.type}
+                  </td>
+                  <td className="p-4 text-right">
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(c.id)}
+                      className="p-1.5 rounded-lg text-slate-600 hover:bg-red-500/20 hover:text-red-400"
+                      title="Delete channel"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
