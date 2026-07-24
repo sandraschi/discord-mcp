@@ -119,4 +119,31 @@ Fleet central mirror: [mcp-central-docs/projects/discord-mcp](https://github.com
 
 ---
 
+## Rate Limits & Anti-Spam
+
+The server enforces two layers of rate limiting to prevent abuse and Discord API bans.
+
+### Server-Side Anti-Spam (configurable)
+
+| Limit | Default | Env Var |
+|-------|---------|---------|
+| Messages per minute (global) | 10 | `DISCORD_RATE_LIMIT_MESSAGES_PER_MINUTE` |
+| Messages per channel per minute | 3 | `DISCORD_RATE_LIMIT_MESSAGES_PER_CHANNEL_PER_MINUTE` |
+| Min interval between messages | 5s | `DISCORD_MIN_MESSAGE_INTERVAL_SECONDS` |
+| Channels created per minute | 5 | `DISCORD_RATE_LIMIT_CHANNELS_PER_MINUTE` |
+| Invites created per minute | 5 | `DISCORD_RATE_LIMIT_INVITES_PER_MINUTE` |
+| Max message length | 2000 | `DISCORD_MAX_MESSAGE_LENGTH` |
+
+These limits are checked **before** the request reaches Discord. If you hit one, the API returns a 429 with a message telling you which limit and how to override it.
+
+### Discord API Rate Limits (automatic retry)
+
+Discord itself enforces per-route rate limits (HTTP 429 with `retry_after`). The server automatically retries up to **5 times** with exponential backoff, respecting Discord's `Retry-After` header. If all retries are exhausted, a structured error is returned.
+
+### Why both?
+
+The server-side limits prevent your bot from getting **suspended** by Discord's abuse detection. They're conservative by default — tune them up for private servers, or tighten them for public bots.
+
+---
+
 **Repository:** [github.com/sandraschi/discord-mcp](https://github.com/sandraschi/discord-mcp)

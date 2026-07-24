@@ -213,6 +213,10 @@ ${S.p("The bot needs the right permissions AND privileged intents enabled. Check
 ${S.h2("Sampling shows 'Offline' or not ready?")}
 ${S.p("Start Ollama locally (ollama serve) or set DISCORD_SAMPLING_BASE_URL to an OpenAI-compatible endpoint. Set DISCORD_SAMPLING_MODEL to the model you want to use. If you prefer the MCP host's LLM, set DISCORD_SAMPLING_USE_CLIENT_LLM=1.")}
 
+${S.h2("Rate limited / 429 errors?")}
+${S.p("The server has two rate-limit layers. Server-side anti-spam (configurable via DISCORD_RATE_LIMIT_* env vars): max 10 messages/min global, 3/min per channel, 5s interval between sends, 5 channels/min, 5 invites/min. These return HTTP 429 with a message explaining which limit and the env var to override.")}
+${S.p("Discord API rate limits (HTTP 429 with retry_after): the server auto-retries up to 5 times with exponential backoff and respects Discord's Retry-After header. If Discord keeps 429-ing you, slow down — Discord may temporarily ban the bot if you ignore their limits.")}
+
 ${S.h2("Port conflict?")}
 ${S.p("Ports are 10756 (backend) and 10757 (frontend). If something else is using them, kill zombies with: Get-NetTCPConnection -LocalPort 10756 | Stop-Process -Id {OwningProcess} -Force. Then re-run start.ps1.")}
 
