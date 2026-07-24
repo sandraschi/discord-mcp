@@ -1,6 +1,10 @@
 
 ## [Unreleased] — 2026-07-24
 
+### Added
+- **Channel CRUD:** `delete_channel` operation in portmanteau tool; `POST /api/v1/guilds/{id}/channels` and `DELETE /api/v1/channels/{id}` REST endpoints; Create and Delete buttons on the Channels dashboard page.
+- **Help page rewrite:** Replaced sparse bullet lists with 6 substantive tabs — About Discord, What You Can Do, MCP Tools (full operation reference), RAG, Env & Setup, FAQ.
+
 ### Fixed
 - **`webapp/start.ps1`:** Added missing `$Root` definition — `Split-Path $PSScriptRoot -Parent` was missing, causing `Join-Path` to resolve `scripts\FleetStartMode.ps1` as a relative path that didn't match. Fixed parameter set conflict between `-LiteralPath` and `-Parent` in `Split-Path`.
 
