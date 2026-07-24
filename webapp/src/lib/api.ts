@@ -189,6 +189,13 @@ export interface MessagesResponse {
   error?: string;
 }
 
+export interface ExportMessagesResponse {
+  success: boolean;
+  markdown?: string;
+  count?: number;
+  error?: string;
+}
+
 export interface Thread {
   id: string;
   name: string;
@@ -382,6 +389,10 @@ export const api = {
   getChannelMessages: (channelId: string, limit = 50) =>
     request<MessagesResponse>(
       `/api/v1/channels/${channelId}/messages?limit=${limit}`,
+    ),
+  exportMessagesMarkdown: (channelId: string, limit = 50) =>
+    request<ExportMessagesResponse>(
+      `/api/v1/channels/${channelId}/export?limit=${limit}`,
     ),
   getChannelThreads: (channelId: string) =>
     request<ThreadsResponse>(`/api/v1/channels/${channelId}/threads`),

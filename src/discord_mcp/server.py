@@ -427,19 +427,27 @@ def discord_capabilities_resource() -> str:
     )
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("Discord MCP REST + MCP mount starting")
+_discord_mcp_http = mcp.http_app(transport="streamable-http", path="/")
+
+# FastMCP 3.4.4 requires the http_app lifespan in the parent FastAPI
+# for StreamableHTTPSessionManager to initialize.
+# Move discord-specific startup/shutdown to event handlers.
+app = FastAPI(title="Discord MCP", lifespan=_discord_mcp_http.lifespan)
+
+
+@app.on_event("startup")
+async def _discord_startup():
     _state.token_set = bool(_resolve_discord_token())
     await maybe_autostart_from_env()
-    yield
+    logger.info("Discord MCP REST + MCP mount starting")
+
+
+@app.on_event("shutdown")
+async def _discord_shutdown():
     global _SHUTTING_DOWN
     _SHUTTING_DOWN = True
     stop_message_watcher()
     logger.info("Discord MCP shutting down")
-
-
-app = FastAPI(title="Discord MCP", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
         allow_origins=[
@@ -1067,6 +1075,14 @@ async def api_channel_messages(channel_id: str, limit: int = 50):
     return out
 
 
+@app.get("/api/v1/channels/{channel_id}/export")
+async def api_export_messages(channel_id: str, limit: int = 50):
+    out = await discord_tool(ctx=None, operation="export_messages", channel_id=channel_id, limit=limit)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Export failed"))
+    return out
+
+
 @app.get("/api/v1/channels/{channel_id}/threads")
 async def api_channel_threads(channel_id: str):
     out = await discord_tool(ctx=None, operation="list_active_threads", channel_id=channel_id)
@@ -1428,7 +1444,7 @@ async def api_comms_watcher_status():
     return message_watcher_status()
 
 
-app.mount("/mcp", mcp.http_app(transport="streamable-http", path="/"))
+app.mount("/mcp", _discord_mcp_http)
 
 
 def main() -> None:

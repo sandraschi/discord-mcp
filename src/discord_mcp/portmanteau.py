@@ -169,9 +169,11 @@ async def discord_tool(
                 "get_messages",
                 "edit_message",
                 "delete_message",
+                "export_messages",
                 "list_active_threads",
                 "get_guild_stats",
                 "create_channel",
+                "delete_channel",
                 "create_guild",
                 "create_invite",
                 "list_invites",
@@ -249,7 +251,7 @@ async def discord_tool(
     atomic tools that bloat the MCP host context. The operation parameter dispatches internally.
 
     Operations: list_guilds, list_channels, send_message, get_messages, edit_message, delete_message,
-    list_active_threads, get_guild_stats, create_channel, create_guild, create_invite, list_invites,
+    list_active_threads, get_guild_stats, create_channel, delete_channel, create_guild, create_invite, list_invites,
     revoke_invite, list_members, get_member, ban_member, unban_member, kick_member, timeout_member,
     list_bans, create_dm, list_roles, create_role, delete_role, assign_role, remove_role,
     list_webhooks, create_webhook, delete_webhook, send_webhook, list_emojis, delete_emoji,
@@ -297,6 +299,10 @@ async def discord_tool(
             if ctx and out.get("success") and out.get("messages"):
                 out["messages"] = wrap_message_list(out["messages"])
             return out
+        if op_lower == "export_messages":
+            if not channel_id:
+                return {"success": False, "error": "export_messages requires channel_id."}
+            return await _export_messages_markdown(channel_id, limit)
         if op_lower == "list_active_threads":
             if not channel_id:
                 return {"success": False, "error": "list_active_threads requires channel_id."}
@@ -312,6 +318,10 @@ async def discord_tool(
             if not allowed:
                 return {"success": False, "error": err, "rate_limited": True}
             return await _create_channel(guild_id, name, channel_type, parent_id)
+        if op_lower == "delete_channel":
+            if not channel_id:
+                return {"success": False, "error": "delete_channel requires channel_id."}
+            return await _delete_channel(channel_id)
         if op_lower == "create_guild":
             if not name:
                 return {"success": False, "error": "create_guild requires name."}
@@ -454,8 +464,8 @@ async def discord_tool(
             "success": False,
             "error": (
                 f"Unknown operation: {operation}. Available: list_guilds, list_channels, send_message, "
-                "get_messages, edit_message, delete_message, list_active_threads, get_guild_stats, "
-                "create_channel, create_guild, create_invite, list_invites, revoke_invite, list_members, "
+                "get_messages, edit_message, delete_message, export_messages, list_active_threads, get_guild_stats, "
+                "create_channel, delete_channel, create_guild, create_invite, list_invites, revoke_invite, list_members, "
                 "get_member, ban_member, unban_member, kick_member, timeout_member, list_bans, create_dm, "
                 "list_roles, create_role, delete_role, assign_role, remove_role, list_webhooks, create_webhook, "
                 "delete_webhook, send_webhook, list_emojis, delete_emoji, list_stickers, get_audit_log, "
@@ -558,6 +568,38 @@ async def _get_messages(channel_id: str, limit: int) -> dict:
         return {"success": True, "messages": messages, "count": len(messages)}
 
 
+async def _export_messages_markdown(channel_id: str, limit: int = 50) -> dict:
+    """Fetch messages and return as formatted markdown suitable for Notion/Obsidian."""
+    out = await _get_messages(channel_id, limit)
+    if not out.get("success"):
+        return out
+    messages = out.get("messages", [])
+    if not messages:
+        return {"success": True, "markdown": "*No messages in this channel.*", "count": 0}
+    lines = []
+    for m in reversed(messages):
+        ts = (m.get("timestamp") or "")[:19].replace("T", " ") if m.get("timestamp") else ""
+        author = m.get("author", "Unknown")
+        content = m.get("content", "")
+        ref = m.get("referenced_message")
+        parts = []
+        if ref and ref.get("content"):
+            parts.append(f"> *Reply to {ref['author']}: {ref['content'][:200]}*\n")
+        parts.append(content[:1500])
+        if m.get("attachments"):
+            for a in m["attachments"][:3]:
+                parts.append(f"📎 [{a.get('filename', 'file')}]({a.get('url')})")
+        if m.get("embeds"):
+            for e in m["embeds"][:2]:
+                title = e.get("title")
+                url = e.get("url")
+                if title and url:
+                    parts.append(f"🔗 [{title}]({url})")
+        body = "\n".join(parts)
+        lines.append(f"### {author} — {ts}\n{body}\n")
+    return {"success": True, "markdown": "\n".join(lines), "count": len(messages)}
+
+
 async def _list_active_threads(channel_id: str) -> dict:
     async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
         r = await _discord_request(
@@ -632,6 +674,19 @@ async def _create_channel(guild_id: str, name: str, channel_type: int = 0, paren
             "type": c.get("type"),
             "guild_id": guild_id,
         }
+
+
+async def _delete_channel(channel_id: str) -> dict:
+    async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
+        r = await _discord_request(
+            client,
+            "DELETE",
+            f"{DISCORD_API}/channels/{channel_id}",
+            headers=_headers(),
+        )
+        if r.status_code not in (200, 204):
+            return _discord_api_error(r)
+        return {"success": True, "channel_id": channel_id, "deleted": True}
 
 
 async def _create_guild(name: str) -> dict:

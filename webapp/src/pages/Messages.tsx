@@ -1,6 +1,8 @@
 import {
   AlertCircle,
+  Clipboard,
   Download,
+  FileText,
   MessageCircle,
   MessageSquare,
 } from "lucide-react";
@@ -26,6 +28,23 @@ export default function Messages() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
   const [threadsOpen, setThreadsOpen] = useState(false);
+  const [exportMd, setExportMd] = useState<string | null>(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const loadExport = async () => {
+    if (!channelId.trim()) return;
+    setExportLoading(true);
+    setExportMd(null);
+    try {
+      const r = await api.exportMessagesMarkdown(channelId.trim(), limit);
+      setExportMd(r.markdown ?? "*No content*");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   const load = () => {
     if (!channelId.trim()) return;
@@ -140,6 +159,14 @@ export default function Messages() {
           <div className="flex gap-2">
             <button
               type="button"
+              onClick={loadExport}
+              disabled={exportLoading}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-700/80 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm"
+            >
+              <FileText className="w-4 h-4" /> {exportLoading ? "Exporting…" : "Markdown"}
+            </button>
+            <button
+              type="button"
               onClick={handleExportCSV}
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-sm"
             >
@@ -192,6 +219,22 @@ export default function Messages() {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {exportMd && (
+        <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 overflow-hidden">
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+            <span className="text-slate-400 text-sm">Markdown Export</span>
+            <button
+              type="button"
+              onClick={() => { navigator.clipboard.writeText(exportMd); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-700/80 hover:bg-slate-600 text-slate-300 text-xs"
+            >
+              <Clipboard className="w-3.5 h-3.5" /> {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+          <pre className="p-4 text-sm text-slate-300 font-mono whitespace-pre-wrap max-h-96 overflow-y-auto">{exportMd}</pre>
         </div>
       )}
 
