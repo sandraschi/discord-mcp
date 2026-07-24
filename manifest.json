@@ -1,0 +1,35 @@
+{
+  "manifest_version": "0.2",
+  "name": "discord-mcp",
+  "version": "0.3.0-beta",
+  "description": "FastMCP 3.2 Discord bridge - 36 portmanteau operations, LanceDB RAG, sampling-based agentic workflows, bundled skills, and SOTA web dashboard",
+  "author": {
+    "name": "Sandra Schieder"
+  },
+  "server": {
+    "type": "python",
+    "entry_point": "src/discord_mcp/server.py",
+    "mcp_config": {
+      "command": "python",
+      "args": ["-m", "discord_mcp.server"],
+      "env": {
+        "PYTHONPATH": "${PWD}/src",
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "discord",
+      "description": "Unified Discord portmanteau - 36 operations: guilds, channels, messages, moderation, roles, invites, webhooks, emojis, stickers, audit log, RAG"
+    },
+    {
+      "name": "discord_agentic_workflow",
+      "description": "Multi-step agentic task using MCP sampling (SEP-1577)"
+    },
+    {
+      "name": "discord_help",
+      "description": "Context-aware documentation for any Discord operation"
+    }
+  ]
+}

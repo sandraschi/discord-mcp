@@ -77,6 +77,10 @@ e2e:
 # ── Native ─────────────────────────────────────────────────────────────────────
 
 # Build Tauri native desktop app (release — full pipeline)
+# Bundle as MCPB for Claude Desktop distribution
+mcpb-pack:
+    Set-Location '{{justfile_directory()}}'; npx @anthropic-ai/mcpb pack . dist/discord-mcp-v0.3.0-beta.mcpb
+
 build-native:
     $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
     & "{{justfile_directory()}}\native\build.ps1"
