@@ -8,22 +8,66 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
+_STARTED = datetime.now(UTC)
+_SHUTTING_DOWN = False
+
+def _resolve_git_sha() -> str:
+    try:
+        import subprocess
+        repo = Path(__file__).resolve().parents[2]
+        return subprocess.run(  # noqa: S603
+            ["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],  # noqa: S607
+            capture_output=True, text=True, timeout=2,
+        ).stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+GIT_SHA = _resolve_git_sha()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stderr,
+)
+logger = logging.getLogger("discord-mcp")
+
 
 def _load_dotenv_file() -> None:
-    """Load repo-root `.env` into the process (does not override existing os.environ)."""
+    """Load `.env` into the process, checking multiple locations (does not override existing env)."""
     try:
         from dotenv import load_dotenv
     except ImportError:
         return
-    # server.py: src/discord_mcp/server.py -> repo root
-    root = Path(__file__).resolve().parent.parent.parent
-    env_path = root / ".env"
-    if env_path.is_file():
-        load_dotenv(env_path, override=False)
+
+    candidates = []
+
+    # 1. Next to the executable (good for frozen executables/installations)
+    if getattr(sys, "frozen", False) and hasattr(sys, "executable"):
+        candidates.append(Path(sys.executable).parent / ".env")
+
+    # 2. Current working directory
+    cwd = Path.cwd()
+    candidates.append(cwd / ".env")
+
+    # 3. Parents of current working directory (e.g. repo root when run from subdirectory)
+    for parent in cwd.parents:
+        candidates.append(parent / ".env")
+
+    # 4. Source tree relative to this file
+    try:
+        candidates.append(Path(__file__).resolve().parent.parent.parent / ".env")
+    except Exception as exc:
+        logger.debug("Failed to resolve __file__ parent candidate: %s", exc)
+
+    for env_path in candidates:
+        if env_path.is_file():
+            load_dotenv(env_path, override=False)
+            logger.info("Loaded environment from %s", env_path)
+            break
 
 
 _load_dotenv_file()
@@ -38,7 +82,7 @@ from pydantic import BaseModel  # noqa: E402
 from pydantic import Field as PydanticField  # noqa: E402
 
 from .activity_log import ActivityLog, create_log_router  # noqa: E402
-from .agentic import discord_agentic_workflow  # noqa: E402
+from .agentic import _runs, discord_agentic_workflow, execute_run_loop  # noqa: E402
 from .message_watcher import (  # noqa: E402
     maybe_autostart_from_env,
     message_watcher_status,
@@ -49,13 +93,6 @@ from .portmanteau import _resolve_discord_token, discord_tool  # noqa: E402
 from .rate_limit import get_rate_limit_config  # noqa: E402
 from .sampling import DiscordSamplingHandler  # noqa: E402
 from .state import _state  # noqa: E402
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    stream=sys.stderr,
-)
-logger = logging.getLogger("discord-mcp")
 
 _USE_CLIENT_SAMPLING = os.getenv("DISCORD_SAMPLING_USE_CLIENT_LLM", "").lower() in (
     "1",
@@ -275,6 +312,9 @@ async def start_message_watcher_tool(
     auto_reply_template: Annotated[
         str, PydanticField(description="Reply template with {author}, {content}, {channel_id}.")
     ] = "",
+    auto_rag: Annotated[
+        bool, PydanticField(description="Enable auto-syncing inbound messages to LanceDB RAG.")
+    ] = False,
 ) -> dict:
     """Start Discord Gateway/poll watcher — inbound messages → webhook + optional auto-reply.
 
@@ -296,6 +336,7 @@ async def start_message_watcher_tool(
         channels=ch_list,
         auto_reply=auto_reply,
         auto_reply_template=auto_reply_template,
+        auto_rag=auto_rag,
     )
 
 
@@ -392,6 +433,8 @@ async def lifespan(app: FastAPI):
     _state.token_set = bool(_resolve_discord_token())
     await maybe_autostart_from_env()
     yield
+    global _SHUTTING_DOWN
+    _SHUTTING_DOWN = True
     stop_message_watcher()
     logger.info("Discord MCP shutting down")
 
@@ -413,13 +456,265 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def add_process_time_header(request, call_next):
+    import time
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = (time.time() - start_time) * 1000.0  # in ms
+    if request.url.path.startswith("/api/v1"):
+        try:
+            from .analytics import tracker
+            tracker.record_call(process_time)
+            if response.status_code >= 400:
+                tracker.record_error()
+            if response.status_code == 429:
+                tracker.record_rate_limit()
+        except Exception as exc:
+            logger.debug("Telemetry logging failed: %s", exc)
+    return response
+
+
+class SaveSettingsBody(BaseModel):
+    settings: dict[str, str]
+
+
+def _get_dotenv_path() -> Path:
+    candidates = []
+    if getattr(sys, "frozen", False) and hasattr(sys, "executable"):
+        candidates.append(Path(sys.executable).parent / ".env")
+    cwd = Path.cwd()
+    candidates.append(cwd / ".env")
+    for parent in cwd.parents:
+        candidates.append(parent / ".env")
+    try:
+        candidates.append(Path(__file__).resolve().parent.parent.parent / ".env")
+    except Exception as exc:
+        logger.debug("Failed to resolve __file__ parent candidate: %s", exc)
+    for path in candidates:
+        if path.is_file():
+            return path
+    return Path.cwd() / ".env"
+
+
+def _update_dotenv(settings: dict[str, str]) -> bool:
+    path = _get_dotenv_path()
+    lines = []
+    if path.is_file():
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            pass
+
+    updated_keys = set()
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and "=" in line:
+            parts = stripped.split("=", 1)
+            key = parts[0].strip()
+            if key in settings:
+                new_lines.append(f"{key}={settings[key]}")
+                updated_keys.add(key)
+                continue
+        new_lines.append(line)
+
+    for key, val in settings.items():
+        if key not in updated_keys:
+            new_lines.append(f"{key}={val}")
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+        for key, val in settings.items():
+            os.environ[key] = val
+        return True
+    except OSError:
+        return False
+
+
 mcp_log = ActivityLog()
 app.include_router(create_log_router(mcp_log), prefix="/api")
 
-@app.get("/api/v1/health")
-async def health():
+
+class AutomationRuleBody(BaseModel):
+    id: str
+    name: str
+    trigger: str = "on_message"
+    condition_type: str = "contains"
+    condition_value: str = ""
+    action_type: str = "reply"
+    action_value: str = ""
+    active: bool = True
+
+
+class SaveAutomationRulesBody(BaseModel):
+    rules: list[AutomationRuleBody]
+
+
+@app.post("/api/v1/settings")
+async def api_save_settings(body: SaveSettingsBody):
+    success = _update_dotenv(body.settings)
+    # Re-evaluate token status
+    _state.token_set = bool(_resolve_discord_token())
+    return {"success": success}
+
+
+@app.get("/api/v1/rules")
+async def api_get_rules():
+    from .rules import _load_rules
+    return _load_rules()
+
+
+@app.post("/api/v1/rules")
+async def api_save_rules(body: SaveAutomationRulesBody):
+    from .rules import _save_rules
+    rules_dict = [r.dict() for r in body.rules]
+    success = _save_rules(rules_dict)
+    return {"success": success}
+
+
+@app.get("/api/v1/stats/analytics")
+async def api_get_analytics():
+    from .analytics import tracker
+    return tracker.get_stats()
+
+
+class SlackMappingBody(BaseModel):
+    id: str
+    discord_channel_id: str
+    slack_webhook_url: str
+    active: bool = True
+
+
+class SaveSlackBridgeBody(BaseModel):
+    mappings: list[SlackMappingBody]
+
+
+@app.get("/api/v1/slack-bridge")
+async def api_get_slack_bridge():
+    from .slack_bridge import _load_mappings
+    return _load_mappings()
+
+
+@app.post("/api/v1/slack-bridge")
+async def api_save_slack_bridge(body: SaveSlackBridgeBody):
+    from .slack_bridge import _save_mappings
+    maps = [m.dict() for m in body.mappings]
+    success = _save_mappings(maps)
+    return {"success": success}
+
+
+@app.get("/api/v1/intents")
+async def api_intents():
+    import httpx
+    token = _resolve_discord_token()
+    if not token:
+        return {
+            "token_valid": False,
+            "error": "No bot token configured.",
+            "client_id": None,
+            "username": None,
+            "intents": {
+                "guild_members": False,
+                "message_content": False
+            }
+        }
+
+    headers = {"Authorization": f"Bot {token}"}
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        try:
+            r = await client.get("https://discord.com/api/v10/users/@me", headers=headers)
+            if r.status_code != 200:
+                return {
+                    "token_valid": False,
+                    "error": f"Invalid bot token (Discord API returned {r.status_code}).",
+                    "client_id": None,
+                    "username": None,
+                    "intents": {
+                        "guild_members": False,
+                        "message_content": False
+                    }
+                }
+            user_data = r.json()
+            username = user_data.get("username")
+            client_id = user_data.get("id")
+
+            g_res = await client.get("https://discord.com/api/v10/users/@me/guilds", headers=headers)
+            guilds = g_res.json() if g_res.status_code == 200 else []
+
+            members_intent = False
+            message_content_intent = False
+            if guilds and isinstance(guilds, list):
+                first_guild_id = guilds[0].get("id")
+                m_res = await client.get(
+                    f"https://discord.com/api/v10/guilds/{first_guild_id}/members?limit=1",
+                    headers=headers
+                )
+                if m_res.status_code == 200:
+                    members_intent = True
+
+            watcher = message_watcher_status()
+            if watcher.get("running") and watcher.get("config", {}).get("mode") == "gateway":
+                message_content_intent = True
+
+            return {
+                "token_valid": True,
+                "username": username,
+                "client_id": client_id,
+                "guilds_count": len(guilds) if isinstance(guilds, list) else 0,
+                "invite_url": f"https://discord.com/oauth2/authorize?client_id={client_id}&permissions=8&scope=bot",
+                "intents": {
+                    "guild_members": members_intent,
+                    "message_content": message_content_intent
+                }
+            }
+        except Exception as e:
+            return {
+                "token_valid": False,
+                "error": f"Connection error: {e!s}",
+                "client_id": None,
+                "username": None,
+                "intents": {
+                    "guild_members": False,
+                    "message_content": False
+                }
+            }
+
+
+@app.get("/health")
+@app.get("/api/health")
+async def root_health():
+    from . import __version__
+    uptime = int((datetime.now(UTC) - _STARTED).total_seconds())
     return {
         "status": "ok",
+        "server": "discord-mcp",
+        "version": __version__,
+        "git_sha": GIT_SHA,
+        "started_at": _STARTED.isoformat(),
+        "uptime_seconds": uptime,
+        "shutting_down": _SHUTTING_DOWN,
+        "transport": "streamable-http",
+        "port": 10756
+    }
+
+
+@app.get("/api/v1/health")
+async def health():
+    from . import __version__
+    uptime = int((datetime.now(UTC) - _STARTED).total_seconds())
+    return {
+        "status": "ok",
+        "server": "discord-mcp",
+        "version": __version__,
+        "git_sha": GIT_SHA,
+        "started_at": _STARTED.isoformat(),
+        "uptime_seconds": uptime,
+        "shutting_down": _SHUTTING_DOWN,
+        "transport": "streamable-http",
+        "port": 10756,
         "service": "discord-mcp",
         "token_set": bool(_resolve_discord_token()),
         "rate_limit": get_rate_limit_config(),
@@ -538,6 +833,28 @@ async def api_channels(guild_id: str):
     return out
 
 
+@app.post("/api/v1/guilds/{guild_id}/channels")
+async def api_create_channel(guild_id: str, body: dict = Body(...)):
+    name = body.get("name", "").strip()
+    channel_type = body.get("type", 0)
+    parent_id = body.get("parent_id")
+    if not name:
+        raise HTTPException(status_code=422, detail="name is required")
+    out = await discord_tool(ctx=None, operation="create_channel", guild_id=guild_id, name=name, channel_type=channel_type, parent_id=parent_id)
+    if not out.get("success"):
+        status = 429 if out.get("rate_limited") else 502
+        raise HTTPException(status_code=status, detail=out.get("error", "Create failed"))
+    return out
+
+
+@app.delete("/api/v1/channels/{channel_id}")
+async def api_delete_channel(channel_id: str):
+    out = await discord_tool(ctx=None, operation="delete_channel", channel_id=channel_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Delete failed"))
+    return out
+
+
 @app.get("/api/v1/guilds/{guild_id}/stats")
 async def api_guild_stats(guild_id: str):
     out = await discord_tool(ctx=None, operation="get_guild_stats", guild_id=guild_id)
@@ -551,6 +868,25 @@ async def api_invites(guild_id: str):
     out = await discord_tool(ctx=None, operation="list_invites", guild_id=guild_id)
     if not out.get("success"):
         raise HTTPException(status_code=502, detail=out.get("error", "Invites unavailable"))
+    return out
+
+
+@app.post("/api/v1/channels/{channel_id}/invites")
+async def api_create_invite(channel_id: str, body: dict = Body(...)):
+    max_age = body.get("max_age", 86400)
+    max_uses = body.get("max_uses", 0)
+    out = await discord_tool(ctx=None, operation="create_invite", channel_id=channel_id, max_age=max_age, max_uses=max_uses)
+    if not out.get("success"):
+        status = 429 if out.get("rate_limited") else 502
+        raise HTTPException(status_code=status, detail=out.get("error", "Create invite failed"))
+    return out
+
+
+@app.delete("/api/v1/invites/{invite_code}")
+async def api_revoke_invite(invite_code: str):
+    out = await discord_tool(ctx=None, operation="revoke_invite", invite_code=invite_code)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Revoke invite failed"))
     return out
 
 
@@ -622,56 +958,67 @@ class CommsWatcherStartBody(BaseModel):
     channels: list[dict] = []
     auto_reply: bool = False
     auto_reply_template: str = ""
+    auto_rag: bool = False
+
+
+class ApproveBody(BaseModel):
+    run_id: str
+    approved: bool
+
+
+_background_tasks = set()
 
 
 @app.post("/api/v1/agentic")
 async def api_agentic(body: AgenticBody = Body(...)):
-    """REST wrapper around discord_tool operations.
-    Accepts a natural-language goal and returns tool guidance."""
-    ops = [
-        "list_guilds",
-        "list_channels",
-        "send_message",
-        "get_messages",
-        "edit_message",
-        "delete_message",
-        "get_guild_stats",
-        "list_active_threads",
-        "create_channel",
-        "create_invite",
-        "list_invites",
-        "revoke_invite",
-        "list_members",
-        "get_member",
-        "ban_member",
-        "unban_member",
-        "kick_member",
-        "timeout_member",
-        "list_bans",
-        "create_dm",
-        "list_roles",
-        "create_role",
-        "delete_role",
-        "assign_role",
-        "remove_role",
-        "list_webhooks",
-        "create_webhook",
-        "delete_webhook",
-        "send_webhook",
-        "list_emojis",
-        "delete_emoji",
-        "list_stickers",
-        "get_audit_log",
-    ]
-    return {
-        "success": True,
+    """Natural-language agentic runner. Spawns loop and returns run ID."""
+    import uuid
+    run_id = f"run_{uuid.uuid4().hex[:8]}"
+    sys_prompt = (
+        _MCP_INSTRUCTIONS
+        + "\n\nYou are working step-by-step to fulfill the goal. Call appropriate tools."
+    )
+    _runs[run_id] = {
+        "id": run_id,
         "goal": body.goal,
-        "available_operations": ops,
-        "message": (
-            "Use discord(operation='...') with the appropriate parameters. "
-            "For local LLM sampling, start Ollama and set DISCORD_SAMPLING_* env vars."
-        ),
+        "status": "running",
+        "steps": [],
+        "current_step": 0,
+        "pending_tool_call": None,
+        "error": None,
+        "message": None,
+        "system_prompt": sys_prompt
     }
+    task = asyncio.create_task(execute_run_loop(run_id))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return {"success": True, "run_id": run_id}
+
+
+@app.get("/api/v1/agentic/runs/{run_id}")
+async def api_get_run(run_id: str):
+    if run_id not in _runs:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return _runs[run_id]
+
+
+@app.post("/api/v1/agentic/approve")
+async def api_approve_run(body: ApproveBody):
+    if body.run_id not in _runs:
+        raise HTTPException(status_code=404, detail="Run not found")
+    run = _runs[body.run_id]
+    if run["status"] != "blocked":
+        raise HTTPException(status_code=400, detail="Run is not blocked waiting for approval")
+
+    if body.approved:
+        run["status"] = "running"
+        run["pending_tool_call"] = None
+    else:
+        run["status"] = "failed"
+        run["error"] = "Destructive tool call rejected by user."
+        if run["steps"]:
+            run["steps"][-1]["status"] = "rejected"
+    return {"success": True}
 
 
 @app.get("/api/v1/providers")
@@ -730,6 +1077,8 @@ async def api_channel_threads(channel_id: str):
 
 @app.post("/api/v1/channels/{channel_id}/messages")
 async def api_send_message(channel_id: str, body: SendMessageBody = Body(...)):
+    if not body.content.strip():
+        raise HTTPException(status_code=422, detail="content cannot be empty")
     out = await discord_tool(ctx=None, operation="send_message", channel_id=channel_id, content=body.content)
     if not out.get("success"):
         status = 429 if out.get("rate_limited") else 502
@@ -969,6 +1318,14 @@ async def api_audit_log(guild_id: str, limit: int = 50, user_id: str | None = No
 # --- RAG ---
 
 
+class RagSyncBody(BaseModel):
+    channel_id: str
+    limit: int = 100
+    guild_id: str = ""
+    guild_name: str = ""
+    channel_name: str = ""
+
+
 @app.post("/api/v1/rag/ingest")
 async def api_rag_ingest(body: RagIngestBody = Body(...)):
     out = await discord_tool(
@@ -1000,6 +1357,48 @@ async def api_rag_query(body: RagQueryBody = Body(...)):
     return out
 
 
+@app.post("/api/v1/rag/sync")
+async def api_rag_sync(body: RagSyncBody = Body(...)):
+    out = await discord_tool(ctx=None, operation="get_messages", channel_id=body.channel_id, limit=body.limit)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Failed to fetch messages"))
+
+    from .rag import ingest_messages
+    msgs = out.get("messages") or []
+    loop = asyncio.get_event_loop()
+    ingest_res = await loop.run_in_executor(
+        None,
+        ingest_messages,
+        msgs,
+        body.guild_name,
+        body.channel_name,
+        body.channel_id,
+        body.guild_id,
+    )
+    if not ingest_res.get("success"):
+        raise HTTPException(status_code=500, detail=ingest_res.get("error", "Ingestion failed"))
+    return ingest_res
+
+
+@app.get("/api/v1/rag/stats")
+async def api_rag_stats():
+    try:
+        from .rag import _get_db
+        db = _get_db()
+        tables = db.table_names()
+        stats = []
+        for t in tables:
+            tbl = db.open_table(t)
+            try:
+                count = tbl.count_rows()
+            except Exception:
+                count = 0
+            stats.append({"table_name": t, "count": count})
+        return {"success": True, "tables": stats}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 # --- Comms watcher (inbound → webhook / auto-reply) ---
 
 
@@ -1012,6 +1411,7 @@ async def api_comms_watcher_start(body: CommsWatcherStartBody = Body(...)):
         channels=body.channels,
         auto_reply=body.auto_reply,
         auto_reply_template=body.auto_reply_template,
+        auto_rag=body.auto_rag,
     )
     if not out.get("running") and out.get("error"):
         raise HTTPException(status_code=400, detail=out["error"])
