@@ -73,6 +73,11 @@ data/
 *.db
 storage/
 
+# Tauri native build artifacts
+native/resources/*.exe
+native/binaries/*.exe
+native/target/
+
 # Backup
 *.bak
 *.backup
@@ -80,3 +85,7 @@ storage/
 target/
 
 _dashboard/
+
+# Local assess scratch
+.assess-fix-timestamp
+
