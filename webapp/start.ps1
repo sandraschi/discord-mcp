@@ -5,6 +5,9 @@ param(
     [switch]$NoBrowser,
     [switch]$ReuseIfRunning)
 
+$Root = Split-Path $PSScriptRoot -Parent
+$BackendPort = 10756
+$FrontendPort = 10757
 $FleetStartPath = Join-Path $Root "scripts\FleetStartMode.ps1"
 if (-not (Test-Path -LiteralPath $FleetStartPath)) {
     Write-Host "ERROR: Missing vendored launcher helper: $FleetStartPath" -ForegroundColor Red
@@ -28,13 +31,8 @@ if ($ReuseIfRunning) {
 $portState = Resolve-FleetPortConflict @portResolve
 if ($portState.Action -eq 'Blocked') { exit 1 }
 if ($portState.Reuse) { return }
-$BackendPort = 10756
-$FrontendPort = 10757
-
-
-$root = Split-Path -Parent $PSScriptRoot
-Set-Location $root
-& (Join-Path $root "start.ps1") @PSBoundParameters
+Set-Location $Root
+& (Join-Path $Root "start.ps1") @PSBoundParameters
 exit $LASTEXITCODE
 
 

@@ -61,7 +61,11 @@ Contextual help for any tool topic.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| DISCORD_TOKEN | — | Bot token from Discord Developer Portal |
+| DISCORD_TOKEN | — | Bot token from Discord Developer Portal (primary) |
+| DISCORD_BOT_TOKEN | — | Fallback if DISCORD_TOKEN not set |
+| SECRETS_MCP_DISCORD_TOKEN | — | Fallback for secrets-mcp bridge |
+| LANCEDB_DISCORD_PATH | data/discord_lancedb | LanceDB path for RAG |
+| DISCORD_DEEPFANG_PREFLIGHT | 0 | Enable deepfang preflight check |
 | PORT | 10756 | Backend port |
 | DISCORD_SAMPLING_BASE_URL | http://127.0.0.1:11434/v1 | OpenAI-compatible sampling endpoint |
 | DISCORD_SAMPLING_MODEL | llama3.2 | Model for sampling |
