@@ -1,6 +1,6 @@
 [project]
 name = "discord-mcp"
-version = "0.2.0"
+version = "0.3.0"
 description = "FastMCP 3.2 Discord MCP server with sampling, agentic workflow, and SOTA webapp"
 readme = "README.md"
 requires-python = ">=3.12"

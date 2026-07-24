@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "name": "discord-mcp",
   "description": "FastMCP 3.2 Discord bridge: 36 portmanteau operations, LanceDB RAG, sampling-based agentic workflows, bundled skills.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "categories": ["messaging", "moderation", "search", "agentic"],
   "tools": [
     "discord",

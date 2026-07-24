@@ -1,21 +1,28 @@
 
-## [Unreleased] — 2026-07-24
+## [0.3.0] — 2026-07-24
 
 ### Added
-- **Channel CRUD:** `delete_channel` operation in portmanteau tool; `POST /api/v1/guilds/{id}/channels` and `DELETE /api/v1/channels/{id}` REST endpoints; Create and Delete buttons on the Channels dashboard page.
-- **Help page rewrite:** Replaced sparse bullet lists with 6 substantive tabs — About Discord, What You Can Do, MCP Tools (full operation reference), RAG, Env & Setup, FAQ.
-- **Markdown export:** `export_messages` portmanteau operation — fetch channel messages as formatted markdown for Notion/Obsidian. REST `GET /api/v1/channels/{id}/export`. Export Markdown + Copy buttons on Messages page.
-- **Channel navigation:** Click a channel name on the Channels page to open the Messages page with that channel pre-loaded.
-- **Create invite:** New "Create Invite" form on the Invites page with channel selector, max age/uses, and one-click copy.
-- **Invite usage badges:** Unused invites show grey; used invites show a green "Used Nx" badge with dot indicator. Refresh button re-fetches without page reload.
-- **Live test suite:** 8 integration tests under `tests/live/` hitting the real Discord API (channel CRUD, messages, invites, guilds). Gated behind `DISCORD_LIVE_TEST=1`.
-- **`docs/PLATFORMS.md`:** Discord vs Slack, Reddit, Telegram, Teams — positioning, bot API, MCP suitability, community culture.
-- **Docs:** AI & LLM policy, rate limits & anti-spam, bot verification, guild master invite flow, cross-guild permissions clarification.
+- **Prefab UI cards:** `show_guilds_card` and `show_guild_channels_card` with rich in-chat cards, `ToolResult(is_error=True)` on failure paths.
+- **Skills REST endpoint:** `GET /api/v1/skills/{name}` returns full SKILL.md content.
+- **Skills page rewrite:** Expandable cards load full content from REST, rendered with react-markdown (proper headings, code blocks, lists).
+- **Chat skill-first architecture:** Fetches skills on mount, shows active skill badge in controls bar, Ollama online/offline status indicator.
+- **SOTA provider detection:** Settings page probes Ollama (:11434), LM Studio (:1234), vLLM (:8000) in parallel with per-provider status, provider/model selector, model discovery, GPU opportunity prompt.
+- **Governance files:** MIT license, CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md, issue/PR templates.
+- **MCPB bundle scaffold:** manifest.json, assets/icon.png, prompts (system.md 3000+w, user.md 4000+w, examples.json 100+).
+- **Channel CRUD:** `delete_channel` operation; REST endpoints; Create/Delete on Channels page.
+- **Help page rewrite:** 6 substantive tabs — About Discord, What You Can Do, MCP Tools, RAG, Env & Setup, FAQ.
+- **Markdown export:** `export_messages` operation for Notion/Obsidian. REST `/export`. Copy button on Messages page.
+- **Channel navigation:** Click channel name → Messages page with channel pre-loaded.
+- **Create invite form:** Invites page with channel selector, max age/uses, one-click copy.
+- **Invite usage badges:** Green "Used Nx" badge for used invites, refresh button.
+- **Live test suite:** 8 integration tests against real Discord API.
+- **docs/PLATFORMS.md:** Discord vs Slack, Reddit, Telegram, Teams.
+- **Docs:** AI & LLM policy, rate limits, bot verification, guild master flow, permissions clarification.
 
 ### Fixed
-- **`webapp/start.ps1`:** Added missing `$Root` definition — `Split-Path $PSScriptRoot -Parent` was missing, causing `Join-Path` to resolve `scripts\FleetStartMode.ps1` as a relative path that didn't match. Fixed parameter set conflict between `-LiteralPath` and `-Parent` in `Split-Path`.
-- **Empty message validation:** `POST /api/v1/channels/{id}/messages` with empty content now returns 422 instead of 502.
-- **Invite REST endpoints:** Added `POST /api/v1/channels/{id}/invites` and `DELETE /api/v1/invites/{code}`.
+- **`webapp/start.ps1`:** Added missing `$Root` definition — `Split-Path $PSScriptRoot -Parent` was missing, causing `Join-Path` to resolve `scripts\FleetStartMode.ps1` as a relative path. Fixed `Split-Path -LiteralPath` + `-Parent` parameter set conflict.
+- **Empty message validation:** 422 instead of 502 on empty content.
+- **Invite REST endpoints:** Added create + revoke endpoints.
 
 # Changelog
 
