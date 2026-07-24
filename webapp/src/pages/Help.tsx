@@ -225,6 +225,12 @@ ${S.p("Every data page (Guilds, Channels, Messages, Members, Invites, Bans, Webh
 ${S.h2("Member list shows 'Requires GUILD_MEMBERS intent'?")}
 ${S.p("Enable the SERVER MEMBERS INTENT (GUILD_MEMBERS) in Discord Developer Portal → Application → Bot → Privileged Gateway Intents. After saving, regenerate your invite URL and re-invite the bot to the server.")}
 
+${S.h2("Bot sees fewer guilds than I'm in?")}
+${S.p("The dashboard shows guilds the bot can see, not guilds your user account can see. A bot only sees servers it has been invited to via the OAuth2 URL. Invite the bot to additional servers by opening the invite URL again and selecting another server.")}
+
+${S.h2("10-server limit?")}
+${S.p("Unverified bots can only join 10 servers. Your bot follows about 20, so you'll hit this cap. Fix: go to Discord Developer Portal → your application → Bot → Verification → submit for verification. Once verified, the 100-server default applies (and you can request more).")}
+
 ${S.h2("Bot sees 0 guilds?")}
 ${S.p("The bot has not been invited to any server yet. Go to Discord Developer Portal → OAuth2 → URL Generator, select the 'bot' scope, pick permissions (or use Administrator), open the generated URL, and select a server to invite the bot to.")}
 `,

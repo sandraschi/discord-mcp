@@ -102,6 +102,10 @@ Fleet central mirror: [mcp-central-docs/projects/discord-mcp](https://github.com
 - **Discord bot token** — free at [Discord Developer Portal](https://discord.com/developers/applications)
 - Optional: [Ollama](https://ollama.com) for local agentic sampling when the MCP host has no LLM
 
+> **Guild limit:** Unverified bots can join **10 servers max**. If you need more, verify your bot
+> in the Developer Portal (Settings → Bot → Verification). Your bot has ~20 servers you want to
+> cover — verification lifts the cap so you can invite it to all of them.
+
 ---
 
 **Repository:** [github.com/sandraschi/discord-mcp](https://github.com/sandraschi/discord-mcp)
