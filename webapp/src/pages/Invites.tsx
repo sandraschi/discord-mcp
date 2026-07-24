@@ -1,4 +1,4 @@
-import { AlertCircle, Copy, Download, Link2, Plus, X } from "lucide-react";
+import { AlertCircle, Copy, Download, Link2, Plus, RefreshCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   api,
@@ -130,13 +130,24 @@ export default function Invites() {
           ))}
         </select>
         {selectedGuildId && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               type="button"
               onClick={() => { setShowCreate(!showCreate); setCreatedUrl(null); }}
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600/80 hover:bg-indigo-500 text-white text-sm"
             >
               <Plus className="w-4 h-4" /> Create Invite
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                setLoading(true);
+                try { const r = await api.getInvites(selectedGuildId); setInvites(r.invites ?? []); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+                setLoading(false);
+              }}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-600 text-slate-300 text-sm"
+            >
+              <RefreshCw className="w-4 h-4" /> Refresh
             </button>
             {invites.length > 0 && (
               <>
@@ -240,7 +251,10 @@ export default function Invites() {
                     </a>
                   </td>
                   <td className="p-4 text-slate-400">
-                    {i.uses ?? 0} / {i.max_uses ?? "∞"}
+                    {(i.uses ?? 0) > 0
+                      ? <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Used {i.uses}x</span>
+                      : <span className="text-slate-500">0 / {i.max_uses ?? "∞"}</span>
+                    }
                   </td>
                   <td className="p-4 text-slate-400">{i.inviter ?? "—"}</td>
                 </tr>
