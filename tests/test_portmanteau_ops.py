@@ -1,4 +1,4 @@
-"""httpx-mocked tests for moderation, roles, webhooks, and audit portmanteau ops."""
+"""httpx-mocked tests for portmanteau ops: moderation, roles, webhooks, audit, channels."""
 
 from unittest.mock import AsyncMock, patch
 
@@ -6,11 +6,6 @@ import pytest
 
 from discord_mcp.portmanteau import discord_tool
 from tests.helpers import discord_response
-
-
-@pytest.fixture(autouse=True)
-def _token(monkeypatch):
-    monkeypatch.setenv("DISCORD_TOKEN", "test-token")
 
 
 @pytest.mark.asyncio
@@ -169,3 +164,34 @@ async def test_get_messages_sanitizes_and_wraps_for_mcp(monkeypatch):
     assert out["success"] is True
     assert "\u200b" not in out["messages"][0]["content"]
     assert "UNTRUSTED EXTERNAL DATA" in out["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_delete_channel_success():
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(204, method="DELETE"),
+    ):
+        out = await discord_tool(operation="delete_channel", channel_id="c1")
+    assert out["success"] is True
+    assert out["channel_id"] == "c1"
+
+
+@pytest.mark.asyncio
+async def test_delete_channel_missing_id():
+    out = await discord_tool(operation="delete_channel")
+    assert out["success"] is False
+    assert "requires channel_id" in out["error"]
+
+
+@pytest.mark.asyncio
+async def test_delete_channel_api_error():
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(403, method="DELETE"),
+    ):
+        out = await discord_tool(operation="delete_channel", channel_id="c1")
+    assert out["success"] is False
+    assert "403" in out["error"]
