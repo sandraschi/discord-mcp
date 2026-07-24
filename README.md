@@ -107,12 +107,15 @@ Fleet central mirror: [mcp-central-docs/projects/discord-mcp](https://github.com
 > screenshots, privacy policy). Once verified, the bot can join up to 100 servers.
 >
 > **How guild masters add the bot:** Send them the invite URL. They open it, select their server,
-> Authorise. The bot appears in their member list with a **BOT** tag.
+> choose which permissions to grant (or keep the defaults from the URL), and Authorise. The bot
+> appears in their member list with a **BOT** tag.
 >
-> **What the bot can do across guilds (with Admin permission):** Read/search messages, post
-> messages, moderate (ban/kick/timeout), manage channels/roles/webhooks, view audit log — on
-> **every guild** the bot has been invited to. The guild master sees the bot in their server;
-> you control it from this dashboard or any MCP client.
+> **What the bot can do depends on the permissions each guild master granted.** The invite URL
+> above requests Administrator (`permissions=8`), which gives full access. But the guild master
+> can reduce permissions during authorisation. With full Admin the bot can read/search/post
+> messages, moderate, manage channels/roles/webhooks, and view audit logs. With limited
+> permissions it can only do what was allowed. The permissions are per-guild, so the bot may be
+> admin in one server and read-only in another.
 
 ---
 

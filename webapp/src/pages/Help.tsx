@@ -235,7 +235,8 @@ ${S.h2("How do guild masters add my bot?")}
 ${S.p("Send them the invite URL: https://discord.com/oauth2/authorize?client_id=1484336517261557900&permissions=8&scope=bot. They open it in a browser, pick their server from the dropdown, and click Authorise. The bot appears in their member list with a BOT tag.")}
 
 ${S.h2("What can the bot do in other servers?")}
-${S.p("Everything it can do here — with Admin permission, the bot can read/search/post messages, moderate (ban/kick/timeout), manage channels/roles/webhooks, and view audit logs on every server it's invited to. You control it from your dashboard or MCP client; the guild master just sees the bot in their member list.")}
+${S.p("It depends on the permissions each guild master granted when they authorised the invite. The default URL requests Administrator (full access), but the guild master can reduce this during setup. The bot's effective permissions are per-guild — it might be admin in one server and read-only in another. You control it from your dashboard or MCP client; the guild master sees the bot in their member list.")}
+${S.p("The bot token is global, but Discord enforces per-guild role permissions. If a guild master only granted 'Send Messages' and 'Read Message History', those are the only operations that work in that guild — moderation and management calls will return 403 Forbidden.")}
 
 ${S.h2("Bot sees 0 guilds?")}
 ${S.p("The bot has not been invited to any server yet. Go to Discord Developer Portal → OAuth2 → URL Generator, select the 'bot' scope, pick permissions (or use Administrator), open the generated URL, and select a server to invite the bot to.")}
