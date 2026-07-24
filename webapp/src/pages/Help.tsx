@@ -84,6 +84,7 @@ ${S.ul([
   `${S.code("create_channel(guild_id, name, type, parent_id)")} — Create text (0), voice (2), or announcement (5) channel`,
   `${S.code("delete_channel(channel_id)")} — Permanently delete a channel`,
   `${S.code("list_active_threads(channel_id)")} — Active threads in a channel`,
+  `${S.code("export_messages(channel_id, limit=50)")} — Channel messages as formatted markdown`,
   `${S.code("get_channel_stats(channel_id)")} — Per-channel statistics`,
 ])}
 

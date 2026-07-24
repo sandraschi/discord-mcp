@@ -23,6 +23,7 @@ All Discord operations are consolidated into a single portmanteau tool:
 | edit_message | Edit a bot-sent message |
 | delete_message | Delete a bot-sent message |
 | list_active_threads | List active threads in a channel |
+| export_messages | Export channel messages as formatted markdown |
 | create_channel | Create a channel in a guild |
 | delete_channel | Delete a channel permanently |
 | create_dm | Create a DM channel with a user |

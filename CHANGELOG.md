@@ -4,9 +4,18 @@
 ### Added
 - **Channel CRUD:** `delete_channel` operation in portmanteau tool; `POST /api/v1/guilds/{id}/channels` and `DELETE /api/v1/channels/{id}` REST endpoints; Create and Delete buttons on the Channels dashboard page.
 - **Help page rewrite:** Replaced sparse bullet lists with 6 substantive tabs — About Discord, What You Can Do, MCP Tools (full operation reference), RAG, Env & Setup, FAQ.
+- **Markdown export:** `export_messages` portmanteau operation — fetch channel messages as formatted markdown for Notion/Obsidian. REST `GET /api/v1/channels/{id}/export`. Export Markdown + Copy buttons on Messages page.
+- **Channel navigation:** Click a channel name on the Channels page to open the Messages page with that channel pre-loaded.
+- **Create invite:** New "Create Invite" form on the Invites page with channel selector, max age/uses, and one-click copy.
+- **Invite usage badges:** Unused invites show grey; used invites show a green "Used Nx" badge with dot indicator. Refresh button re-fetches without page reload.
+- **Live test suite:** 8 integration tests under `tests/live/` hitting the real Discord API (channel CRUD, messages, invites, guilds). Gated behind `DISCORD_LIVE_TEST=1`.
+- **`docs/PLATFORMS.md`:** Discord vs Slack, Reddit, Telegram, Teams — positioning, bot API, MCP suitability, community culture.
+- **Docs:** AI & LLM policy, rate limits & anti-spam, bot verification, guild master invite flow, cross-guild permissions clarification.
 
 ### Fixed
 - **`webapp/start.ps1`:** Added missing `$Root` definition — `Split-Path $PSScriptRoot -Parent` was missing, causing `Join-Path` to resolve `scripts\FleetStartMode.ps1` as a relative path that didn't match. Fixed parameter set conflict between `-LiteralPath` and `-Parent` in `Split-Path`.
+- **Empty message validation:** `POST /api/v1/channels/{id}/messages` with empty content now returns 422 instead of 502.
+- **Invite REST endpoints:** Added `POST /api/v1/channels/{id}/invites` and `DELETE /api/v1/invites/{code}`.
 
 # Changelog
 
