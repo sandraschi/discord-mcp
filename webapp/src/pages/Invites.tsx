@@ -1,7 +1,9 @@
-import { AlertCircle, Download, Link2 } from "lucide-react";
+import { AlertCircle, Copy, Download, Link2, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   api,
+  type Channel,
+  type ChannelsResponse,
   type Guild,
   type GuildsResponse,
   type Invite,
@@ -15,6 +17,21 @@ export default function Invites() {
   const [selectedGuildId, setSelectedGuildId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [invChannelId, setInvChannelId] = useState("");
+  const [invMaxAge, setInvMaxAge] = useState(86400);
+  const [invMaxUses, setInvMaxUses] = useState(0);
+  const [invCreating, setInvCreating] = useState(false);
+  const [invCreateErr, setInvCreateErr] = useState<string | null>(null);
+  const [createdUrl, setCreatedUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const fetchChannels = (guildId: string) => {
+    api.getChannels(guildId).then((r: ChannelsResponse) => {
+      setChannels(r.channels?.filter((c) => c.type === 0) ?? []);
+    }).catch(() => {});
+  };
 
   useEffect(() => {
     api
@@ -26,6 +43,7 @@ export default function Invites() {
   useEffect(() => {
     if (!selectedGuildId) {
       setInvites([]);
+      setChannels([]);
       return;
     }
     setLoading(true);
@@ -35,7 +53,28 @@ export default function Invites() {
       .then((r: InvitesResponse) => setInvites(r.invites ?? []))
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
+    fetchChannels(selectedGuildId);
   }, [selectedGuildId]);
+
+  const handleCreate = async () => {
+    if (!invChannelId) { setInvCreateErr("Select a channel"); return; }
+    setInvCreating(true);
+    setInvCreateErr(null);
+    setCreatedUrl(null);
+    try {
+      const r = await api.createInvite(invChannelId, invMaxAge, invMaxUses);
+      setCreatedUrl(r.url ?? `https://discord.gg/${r.code}`);
+      setShowCreate(false);
+      if (selectedGuildId) {
+        const r2 = await api.getInvites(selectedGuildId);
+        setInvites(r2.invites ?? []);
+      }
+    } catch (e) {
+      setInvCreateErr(e instanceof Error ? e.message : "Create failed");
+    } finally {
+      setInvCreating(false);
+    }
+  };
 
   const handleExportCSV = () => {
     const rows = invites.map((i) => ({
@@ -90,25 +129,81 @@ export default function Invites() {
             </option>
           ))}
         </select>
-        {selectedGuildId && invites.length > 0 && (
+        {selectedGuildId && (
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-sm"
+              onClick={() => { setShowCreate(!showCreate); setCreatedUrl(null); }}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600/80 hover:bg-indigo-500 text-white text-sm"
             >
-              <Download className="w-4 h-4" /> CSV
+              <Plus className="w-4 h-4" /> Create Invite
             </button>
-            <button
-              type="button"
-              onClick={handleExportJSON}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-sm"
-            >
-              <Download className="w-4 h-4" /> JSON
-            </button>
+            {invites.length > 0 && (
+              <>
+                <button type="button" onClick={handleExportCSV} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-sm">
+                  <Download className="w-4 h-4" /> CSV
+                </button>
+                <button type="button" onClick={handleExportJSON} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-sm">
+                  <Download className="w-4 h-4" /> JSON
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
+
+      {showCreate && selectedGuildId && (
+        <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-200">New Invite Link</h3>
+            <button type="button" onClick={() => setShowCreate(false)} className="text-slate-500 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <select
+              value={invChannelId}
+              onChange={(e) => setInvChannelId(e.target.value)}
+              className="rounded-xl bg-[#1a1a1e] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px] flex-1"
+            >
+              <option value="">Select a text channel</option>
+              {channels.map((c) => (
+                <option key={c.id} value={c.id}>#{c.name}</option>
+              ))}
+            </select>
+            <input
+              type="number" placeholder="Max age (s)" value={invMaxAge}
+              onChange={(e) => setInvMaxAge(Number(e.target.value))}
+              className="w-28 rounded-xl bg-[#1a1a1e] border border-white/10 px-3 py-2 text-slate-200 text-sm"
+            />
+            <input
+              type="number" placeholder="Max uses (0=unlimited)" value={invMaxUses}
+              onChange={(e) => setInvMaxUses(Number(e.target.value))}
+              className="w-28 rounded-xl bg-[#1a1a1e] border border-white/10 px-3 py-2 text-slate-200 text-sm"
+            />
+            <button
+              type="button" onClick={handleCreate} disabled={invCreating || !invChannelId}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm disabled:opacity-50"
+            >
+              {invCreating ? "Creating..." : "Create"}
+            </button>
+          </div>
+          {invCreateErr && <p className="text-xs text-red-400">{invCreateErr}</p>}
+        </div>
+      )}
+
+      {createdUrl && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3">
+          <span className="text-sm text-emerald-300 font-mono break-all flex-1">{createdUrl}</span>
+          <button
+            type="button"
+            onClick={() => { navigator.clipboard.writeText(createdUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 text-xs"
+          >
+            <Copy className="w-3.5 h-3.5" /> {copied ? "Copied!" : "Copy"}
+          </button>
+        </div>
+      )}
 
       {loading && <p className="text-slate-400">Loading invites…</p>}
 
