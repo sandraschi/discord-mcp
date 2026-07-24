@@ -91,6 +91,7 @@ from .message_watcher import (  # noqa: E402
 )
 from .portmanteau import _resolve_discord_token, discord_tool  # noqa: E402
 from .rate_limit import get_rate_limit_config  # noqa: E402
+from .tools.prefab_cards import register_prefab_tools  # noqa: E402
 from .sampling import DiscordSamplingHandler  # noqa: E402
 from .state import _state  # noqa: E402
 
@@ -292,6 +293,7 @@ if bridge_urls:
 mcp.tool()(discord_tool)
 mcp.tool()(discord_help)
 mcp.tool()(discord_agentic_workflow)
+register_prefab_tools(mcp)
 
 
 async def start_message_watcher_tool(
@@ -823,6 +825,18 @@ async def list_skills():
         out.append({"name": d.name, "preview": preview})
     _skills_cache = {"skills": out}
     return _skills_cache
+
+
+@app.get("/api/v1/skills/{skill_name}")
+async def get_skill(skill_name: str):
+    skill_path = SKILLS_ROOT / skill_name / "SKILL.md"
+    if not skill_path.is_file():
+        raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found")
+    try:
+        text = skill_path.read_text(encoding="utf-8")
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read skill: {e}")
+    return {"name": skill_name, "content": text}
 
 
 @app.get("/api/v1/guilds")

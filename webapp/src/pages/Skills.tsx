@@ -1,11 +1,16 @@
-import { AlertCircle, BookMarked, Copy, RefreshCw } from "lucide-react";
+import { AlertCircle, BookMarked, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { api, type SkillEntry } from "@/lib/api";
 
 export default function Skills() {
   const [skills, setSkills] = useState<SkillEntry[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [content, setContent] = useState<string | null>(null);
+  const [contentLoading, setContentLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -16,11 +21,18 @@ export default function Skills() {
       .finally(() => setLoading(false));
   }, []);
 
-  const copy = async (text: string) => {
+  const loadContent = async (name: string) => {
+    if (expanded === name) { setExpanded(null); setContent(null); return; }
+    setExpanded(name);
+    setContentLoading(true);
+    setContent(null);
     try {
-      await navigator.clipboard.writeText(text);
+      const r = await api.getSkillContent(name);
+      setContent(r.content);
     } catch {
-      /* ignore */
+      setContent("Failed to load skill content.");
+    } finally {
+      setContentLoading(false);
     }
   };
 
@@ -37,13 +49,10 @@ export default function Skills() {
         <div className="flex items-center gap-3">
           <BookMarked className="w-6 h-6 text-violet-400" />
           <div>
-            <h2 className="text-lg font-semibold text-white">Bundled skills</h2>
+            <h2 className="text-lg font-semibold text-white">Bundled Skills</h2>
             <p className="text-sm text-slate-500">
-              Exposed to MCP clients as{" "}
-              <span className="font-mono text-slate-400">
-                skill://…/SKILL.md
-              </span>
-              . Copy below or install into your Cursor / Claude skills folder.
+              Exposed to MCP clients as <span className="font-mono text-slate-400">skill://name/SKILL.md</span>.
+              Click a skill to expand and read the full content.
             </p>
           </div>
         </div>
@@ -54,32 +63,32 @@ export default function Skills() {
             <span>Loading skills…</span>
           </div>
         ) : skills.length === 0 ? (
-          <p className="text-slate-500 text-sm">
-            No skills found on the server.
-          </p>
+          <p className="text-slate-500 text-sm">No skills found on the server.</p>
         ) : (
-          <ul className="space-y-4">
+          <ul className="space-y-3">
             {skills.map((s) => (
-              <li
-                key={s.name}
-                className="rounded-xl border border-white/5 bg-black/25 overflow-hidden"
-              >
-                <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/5 bg-white/[0.02]">
-                  <span className="font-mono text-sm text-indigo-300">
-                    {s.name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => copy(s.preview)}
-                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    Copy preview
-                  </button>
-                </div>
-                <pre className="text-xs text-slate-400 whitespace-pre-wrap p-4 max-h-64 overflow-y-auto font-mono leading-relaxed">
-                  {s.preview}
-                </pre>
+              <li key={s.name} className="rounded-xl border border-white/5 bg-black/25 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => loadContent(s.name)}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors text-left"
+                >
+                  <span className="font-mono text-sm text-indigo-300">{s.name}</span>
+                  {expanded === s.name ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
+                </button>
+                {expanded === s.name && (
+                  <div className="px-4 pb-4">
+                    {contentLoading ? (
+                      <p className="text-sm text-slate-500">Loading…</p>
+                    ) : content ? (
+                      <div className="prose prose-invert prose-sm max-w-none text-slate-300 [&_h1]:text-white [&_h2]:text-white [&_h3]:text-slate-200 [&_code]:bg-[#1a1a1e] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-indigo-300 [&_pre]:bg-[#1a1a1e] [&_pre]:p-4 [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-white/5 [&_a]:text-indigo-400 [&_a]:hover:underline [&_hr]:border-white/10">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">No content available.</p>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

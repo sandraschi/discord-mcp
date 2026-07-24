@@ -76,6 +76,11 @@ export interface SkillsResponse {
   skills: SkillEntry[];
 }
 
+export interface SkillContentResponse {
+  name: string;
+  content: string;
+}
+
 export interface Guild {
   id: string;
   name: string;
@@ -363,6 +368,7 @@ export const api = {
   getHealth: () => request<Health>("/api/v1/health"),
   getMeta: () => request<Meta>("/api/v1/meta"),
   getSkills: () => request<SkillsResponse>("/api/v1/skills"),
+  getSkillContent: (name: string) => request<SkillContentResponse>(`/api/v1/skills/${name}`),
   getGuilds: () => request<GuildsResponse>("/api/v1/guilds"),
   getChannels: (guildId: string) =>
     request<ChannelsResponse>(`/api/v1/guilds/${guildId}/channels`),
