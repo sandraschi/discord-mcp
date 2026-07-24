@@ -102,9 +102,17 @@ Fleet central mirror: [mcp-central-docs/projects/discord-mcp](https://github.com
 - **Discord bot token** — free at [Discord Developer Portal](https://discord.com/developers/applications)
 - Optional: [Ollama](https://ollama.com) for local agentic sampling when the MCP host has no LLM
 
-> **Guild limit:** Unverified bots can join **10 servers max**. If you need more, verify your bot
-> in the Developer Portal (Settings → Bot → Verification). Your bot has ~20 servers you want to
-> cover — verification lifts the cap so you can invite it to all of them.
+> **Guild limit:** Unverified bots can join **10 servers max**. To raise the cap, verify your bot
+> in Developer Portal → your application → Settings → Bot → Verification (requires description,
+> screenshots, privacy policy). Once verified, the bot can join up to 100 servers.
+>
+> **How guild masters add the bot:** Send them the invite URL. They open it, select their server,
+> Authorise. The bot appears in their member list with a **BOT** tag.
+>
+> **What the bot can do across guilds (with Admin permission):** Read/search messages, post
+> messages, moderate (ban/kick/timeout), manage channels/roles/webhooks, view audit log — on
+> **every guild** the bot has been invited to. The guild master sees the bot in their server;
+> you control it from this dashboard or any MCP client.
 
 ---
 

@@ -229,7 +229,13 @@ ${S.h2("Bot sees fewer guilds than I'm in?")}
 ${S.p("The dashboard shows guilds the bot can see, not guilds your user account can see. A bot only sees servers it has been invited to via the OAuth2 URL. Invite the bot to additional servers by opening the invite URL again and selecting another server.")}
 
 ${S.h2("10-server limit?")}
-${S.p("Unverified bots can only join 10 servers. Your bot follows about 20, so you'll hit this cap. Fix: go to Discord Developer Portal → your application → Bot → Verification → submit for verification. Once verified, the 100-server default applies (and you can request more).")}
+${S.p("Unverified bots can only join 10 servers. To raise the cap: Developer Portal → your application → Settings → Bot → Verification → fill out the form (description, screenshots, privacy policy URL). Once verified, the 100-server default applies.")}
+
+${S.h2("How do guild masters add my bot?")}
+${S.p("Send them the invite URL: https://discord.com/oauth2/authorize?client_id=1484336517261557900&permissions=8&scope=bot. They open it in a browser, pick their server from the dropdown, and click Authorise. The bot appears in their member list with a BOT tag.")}
+
+${S.h2("What can the bot do in other servers?")}
+${S.p("Everything it can do here — with Admin permission, the bot can read/search/post messages, moderate (ban/kick/timeout), manage channels/roles/webhooks, and view audit logs on every server it's invited to. You control it from your dashboard or MCP client; the guild master just sees the bot in their member list.")}
 
 ${S.h2("Bot sees 0 guilds?")}
 ${S.p("The bot has not been invited to any server yet. Go to Discord Developer Portal → OAuth2 → URL Generator, select the 'bot' scope, pick permissions (or use Administrator), open the generated URL, and select a server to invite the bot to.")}
