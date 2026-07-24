@@ -66,6 +66,10 @@ test:
     Set-Location '{{justfile_directory()}}'
     uv run pytest tests/ -q
 
+# Run live integration tests (requires running backend on :10756 + DISCORD_LIVE_TEST=1)
+live-tests:
+    Set-Location '{{justfile_directory()}}'; $env:DISCORD_LIVE_TEST = "1"; uv run pytest tests/live/ -v --tb=short
+
 # Run e2e Playwright tests
 e2e:
     pwsh -NoLogo -NoProfile -ExecutionPolicy Bypass -File "D:\Dev\repos\mcp-central-docs\scripts\playwright-audit.ps1" -RepoPath "{{justfile_directory()}}"
@@ -74,13 +78,8 @@ e2e:
 
 # Build Tauri native desktop app (release — full pipeline)
 build-native:
-    Set-Location '{{justfile_directory()}}\native'
     $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
-    .\build.ps1
-
-# Run CUA smoke test against installed NSIS app
-cua-nsis-test:
-    C:\Windows\py.exe scripts/cua-smoke.py
+    & "{{justfile_directory()}}\native\build.ps1"
 
 # Build Tauri native app (debug, skip PyInstaller)
 build-native-debug:
