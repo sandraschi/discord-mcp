@@ -19,6 +19,7 @@ import Rag from "./pages/Rag";
 import Rules from "./pages/Rules";
 import Bridge from "./pages/Bridge";
 import Roles from "./pages/Roles";
+import ScheduledMessages from "./pages/ScheduledMessages";
 import SendMessage from "./pages/SendMessage";
 import Settings from "./pages/Settings";
 import Skills from "./pages/Skills";
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/favorites" element={<Favorites />} />
         <Route path="/trawl" element={<Trawl />} />
         <Route path="/rag" element={<Rag />} />
+        <Route path="/scheduled" element={<ScheduledMessages />} />
         <Route path="/bridge" element={<Bridge />} />
         <Route path="/rules" element={<Rules />} />
         <Route path="/stats" element={<Stats />} />
