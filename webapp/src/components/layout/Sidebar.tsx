@@ -24,6 +24,9 @@ import {
   Terminal,
   Users,
   Webhook,
+  Cpu,
+  Palette,
+  Share2,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -40,10 +43,13 @@ const navItems = [
   { path: "/webhooks", label: "Webhooks", icon: Webhook },
   { path: "/audit-log", label: "Audit log", icon: ScrollText },
   { path: "/messages", label: "Messages", icon: MessageSquare },
+  { path: "/embed-builder", label: "Embed Builder", icon: Palette },
   { path: "/send", label: "Send message", icon: Send },
   { path: "/favorites", label: "Favorites", icon: Star },
   { path: "/trawl", label: "Trawl", icon: Search },
   { path: "/rag", label: "RAG (LanceDB)", icon: Database },
+  { path: "/bridge", label: "Slack bridge", icon: Share2 },
+  { path: "/rules", label: "Rules engine", icon: Cpu },
   { path: "/stats", label: "Statistics", icon: BarChart3 },
   { path: "/tools", label: "Tools", icon: Terminal },
   { path: "/skills", label: "Skills", icon: BookMarked },
