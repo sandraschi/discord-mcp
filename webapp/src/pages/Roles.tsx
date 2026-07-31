@@ -1,29 +1,18 @@
 import { AlertCircle, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  api,
-  type Guild,
-  type GuildsResponse,
-  type Role,
-} from "../lib/api";
+import { api, type Member, type Role } from "../lib/api";
+import { useGuildPicker } from "../lib/useGuildPicker";
 
 export default function Roles() {
-  const [guilds, setGuilds] = useState<Guild[]>([]);
-  const [guildId, setGuildId] = useState("");
+  const { guilds, guildId, setGuildId, showPicker } = useGuildPicker();
   const [roles, setRoles] = useState<Role[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [newRoleName, setNewRoleName] = useState("");
   const [assignUserId, setAssignUserId] = useState("");
   const [assignRoleId, setAssignRoleId] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .getGuilds()
-      .then((r: GuildsResponse) => setGuilds(r.guilds ?? []))
-      .catch((e) => setErr(e.message));
-  }, []);
 
   const loadRoles = () => {
     if (!guildId) return;
@@ -38,6 +27,14 @@ export default function Roles() {
 
   useEffect(() => {
     loadRoles();
+  }, [guildId]);
+
+  useEffect(() => {
+    if (!guildId) return;
+    api
+      .getMembers(guildId, 1000)
+      .then((r) => setMembers(r.members ?? []))
+      .catch(() => {});
   }, [guildId]);
 
   const handleCreate = async () => {
@@ -79,7 +76,7 @@ export default function Roles() {
         <Shield className="text-violet-400 w-8 h-8" />
         <div>
           <h1 className="text-2xl font-bold text-white">Roles</h1>
-          <p className="text-slate-400 text-sm">List, create, delete, and assign roles</p>
+          <p className="text-slate-400 text-sm">Roles bundle permissions, colors, and labels — create, delete, and assign them</p>
         </div>
       </div>
 
@@ -91,18 +88,20 @@ export default function Roles() {
       )}
       {msg && <p className="text-emerald-300 text-sm">{msg}</p>}
 
-      <select
-        value={guildId}
-        onChange={(e) => setGuildId(e.target.value)}
-        className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px]"
-      >
-        <option value="">Select server</option>
-        {guilds.map((g) => (
-          <option key={g.id} value={g.id}>
-            {g.name}
-          </option>
-        ))}
-      </select>
+      {showPicker && (
+        <select
+          value={guildId}
+          onChange={(e) => setGuildId(e.target.value)}
+          className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px]"
+        >
+          <option value="">Select server</option>
+          {guilds.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+      )}
 
       <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 p-4 flex flex-wrap gap-3">
         <input
@@ -121,18 +120,31 @@ export default function Roles() {
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 p-4 flex flex-wrap gap-3">
-        <input
+        <select
           value={assignUserId}
           onChange={(e) => setAssignUserId(e.target.value)}
-          placeholder="User ID"
-          className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200"
-        />
-        <input
+          className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200 min-w-[180px]"
+        >
+          <option value="">Select member…</option>
+          {members.map((m) => (
+            <option key={m.user_id} value={m.user_id}>
+              {m.username}
+              {m.nick ? ` (${m.nick})` : ""}
+            </option>
+          ))}
+        </select>
+        <select
           value={assignRoleId}
           onChange={(e) => setAssignRoleId(e.target.value)}
-          placeholder="Role ID"
-          className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200"
-        />
+          className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200 min-w-[180px]"
+        >
+          <option value="">Select role…</option>
+          {roles.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
           onClick={handleAssign}
@@ -150,7 +162,6 @@ export default function Roles() {
             <thead>
               <tr className="border-b border-white/10">
                 <th className="p-4 text-sm text-slate-300">Name</th>
-                <th className="p-4 text-sm text-slate-300">ID</th>
                 <th className="p-4 text-sm text-slate-300">Position</th>
                 <th className="p-4 text-sm text-slate-300">Action</th>
               </tr>
@@ -159,7 +170,6 @@ export default function Roles() {
               {roles.map((r) => (
                 <tr key={r.id} className="border-b border-white/5">
                   <td className="p-4 text-slate-200">{r.name}</td>
-                  <td className="p-4 font-mono text-sm text-slate-400">{r.id}</td>
                   <td className="p-4 text-slate-400">{r.position ?? "—"}</td>
                   <td className="p-4">
                     {!r.managed && (

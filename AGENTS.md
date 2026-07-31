@@ -4,7 +4,7 @@ Fleet MCP server (Comms lane). See `justfile` for available recipes.
 
 ## Overview
 
-FastMCP 3.2 Discord MCP server — 36 portmanteau operations, sampling, agentic workflow, and fleet webapp (ports 10756/10757).
+FastMCP 3.2 Discord MCP server — 43 portmanteau operations, sampling, agentic workflow, and fleet webapp (ports 10756/10757).
 
 ## Standards
 

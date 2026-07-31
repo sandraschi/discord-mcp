@@ -6,18 +6,20 @@
 
 | Page | Route | Purpose |
 |------|-------|---------|
-| Dashboard | `/dashboard` | Health, guild overview, activity |
+| Dashboard | `/dashboard` | Health, server overview, activity |
 | Agentic Chat | `/chat` | Sampling-based agentic workflow UI |
-| Guilds | `/guilds` | Browse servers |
-| Channels | `/channels` | Channel list per guild |
+| Servers | `/guilds` | Catalog: "My servers" vs "Following", curated descriptions, **global server selection** (persisted; every page follows) |
+| Server tree | `/tree` | Category → channel → thread hierarchy, collapsible, copyable ASCII view |
+| Channels | `/channels` | Channel list per server |
+| Audit log | `/audit-log` | Decoded moderation/admin history (action labels, actor/target names, timestamps) |
 | Invites | `/invites` | Create, list, revoke invites |
 | Members | `/members` | Member list (needs GUILD_MEMBERS intent) |
 | Messages | `/messages` | Read channel history |
 | Send message | `/send` | Post to a channel |
-| Favorites | `/favorites` | Saved guild/channel shortcuts |
+| Favorites | `/favorites` | Saved server/channel shortcuts |
 | Trawl | `/trawl` | Bulk message fetch |
 | RAG (LanceDB) | `/rag` | Ingest and semantic search |
-| Statistics | `/stats` | Guild/channel stats |
+| Statistics | `/stats` | Server/channel stats |
 | Tools | `/tools` | Run MCP tools from the browser |
 | Skills | `/skills` | Bundled skill previews |
 | Apps | `/apps` | Fleet app links |
@@ -40,15 +42,18 @@ Launch full stack: `.\start.ps1` from repo root (or `just serve`).
 | POST | `/api/v1/agentic` | Agentic workflow (HTTP) |
 | GET | `/api/v1/providers` | Sampling provider info |
 
-### Guilds & channels
+### Servers & channels
 
 | Method | Path |
 |--------|------|
 | GET | `/api/v1/guilds` |
-| GET | `/api/v1/guilds/{guild_id}/channels` |
+| GET | `/api/v1/guilds/{guild_id}/channels` (includes `parent_id`) |
 | GET | `/api/v1/guilds/{guild_id}/stats` |
 | GET | `/api/v1/guilds/{guild_id}/invites` |
 | GET | `/api/v1/guilds/{guild_id}/members` |
+| PATCH | `/api/v1/guilds/{guild_id}` (rename, description) |
+| GET | `/api/v1/channels/{channel_id}` |
+| PATCH | `/api/v1/channels/{channel_id}` (rename, topic, move to category, position, nsfw, slowmode) |
 
 ### Messages & DMs
 
@@ -56,9 +61,13 @@ Launch full stack: `.\start.ps1` from repo root (or `just serve`).
 |--------|------|
 | GET | `/api/v1/channels/{channel_id}/messages` |
 | GET | `/api/v1/channels/{channel_id}/threads` |
+| POST | `/api/v1/channels/{channel_id}/threads` (create thread, optional `message_id`) |
 | POST | `/api/v1/channels/{channel_id}/messages` |
 | PATCH | `/api/v1/channels/{channel_id}/messages/{message_id}` |
 | DELETE | `/api/v1/channels/{channel_id}/messages/{message_id}` |
+| GET | `/api/v1/channels/{channel_id}/pins` |
+| PUT | `/api/v1/channels/{channel_id}/pins/{message_id}` |
+| DELETE | `/api/v1/channels/{channel_id}/pins/{message_id}` |
 | POST | `/api/v1/dm` |
 
 ### Moderation, roles, webhooks, assets

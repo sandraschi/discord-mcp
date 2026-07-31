@@ -1,4 +1,20 @@
 
+## [Unreleased]
+
+### Added
+- **7 new portmanteau operations (36 -> 43):** `get_channel`, `update_channel` (rename/topic/move-to-category/position/nsfw/slowmode), `update_guild`, `pin_message`, `unpin_message`, `get_pinned_messages`, `create_thread` (standalone or from a message). REST mirrors for all of them (`GET|PATCH /api/v1/channels/{id}`, `PATCH /api/v1/guilds/{id}`, `/api/v1/channels/{id}/pins`, `/api/v1/channels/{id}/threads`).
+- **`list_channels` now returns `parent_id`** so the webapp can render the server hierarchy.
+- **Server tree page** (`/tree`): collapsible category -> channel -> thread hierarchy with icons, plus a copyable ASCII view.
+- **Servers catalog page** (`/guilds`): categorized "My servers" vs "Following" cards with curated descriptions/tags for known servers (opencode, ollama, lm studio, cursor), favorites, and **global server selection** via a Zustand store — one pick updates every page and persists to localStorage.
+- **Human-readable audit log**: backend resolves action labels, actor and target names; frontend renders color-coded action badges and snowflake-derived timestamps.
+- **Sampling model auto-resolution**: when `DISCORD_SAMPLING_MODEL` is unset, the server probes Ollama `/api/tags` and picks an installed model (prefers `llama3.2:3b`, excludes `:cloud` tags) instead of 404ing on a stale default.
+- **2000-char content guard**: `send_message`/`edit_message`/`send_webhook` reject over-limit content with a structured `content_too_long` error instead of silently truncating.
+- **Biome config + gate** (`webapp/biome.jsonc`, `biome:ci` npm script): Tailwind at-rule support; the fleet CI biome step now passes.
+
+### Fixed
+- **LLM completion 404**: agentic/sampling used the uninstalled default model `llama3.2`; agentic errors now include HTTP status + provider body.
+- **Nested `<button>`** in the servers catalog (card vs favorite toggle).
+
 ## [0.3.0] — 2026-07-24
 
 ### Added

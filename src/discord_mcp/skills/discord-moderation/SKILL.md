@@ -1,46 +1,57 @@
----
-name: discord-moderation
-description: Ban, kick, timeout, audit log, and role moderation workflows for Discord MCP.
----
+# Discord Moderation Skill
 
-# Discord MCP — Moderation
+## Overview
 
-Use `discord(operation=...)` for server moderation. Requires bot permissions on the target guild.
+Moderation workflow for Discord guilds. Covers ban/kick/timeout operations, audit log review, ban list management, and role-based access control.
 
-## Permissions map
+## Prerequisites
 
-| Operation | Discord permission |
-|-----------|-------------------|
-| `ban_member`, `unban_member`, `list_bans` | BAN_MEMBERS |
-| `kick_member` | KICK_MEMBERS |
-| `timeout_member` | MODERATE_MEMBERS |
-| `list_roles`, `create_role`, `delete_role`, `assign_role`, `remove_role` | MANAGE_ROLES |
-| `get_audit_log` | VIEW_AUDIT_LOG |
+The bot needs these permissions in the guild:
+- BAN_MEMBERS — for ban_member, unban_member, list_bans
+- KICK_MEMBERS — for kick_member
+- MODERATE_MEMBERS — for timeout_member
+- VIEW_AUDIT_LOG — for get_audit_log
+- MANAGE_ROLES — for role operations
 
-## Recommended workflow
+Plus the following privileged intents in Discord Developer Portal:
+- GUILD_MEMBERS — required for member lookups
 
-1. `list_guilds` → pick `guild_id`
-2. `list_members` or `get_member` → confirm target `user_id`
-3. Optional: `get_audit_log` with `limit=20` to review recent actions
-4. Apply action with a short `reason` (stored in audit log when supported)
+## Workflow: Investigate and Act
 
-## Ban / unban
+### 1. Review Audit Log
+Start with recent moderation events:
+```
+discord(operation="get_audit_log", guild_id="...", limit=20)
+```
+Filter by action_type (22=ban, 23=unban, 24=kick, 25=timeout) or user_id to narrow.
 
+### 2. Check Current Bans
+```
+discord(operation="list_bans", guild_id="...")
+```
+Returns user_id, username, and reason for each ban.
+
+### 3. Take Action
+
+**Ban a spammer:**
 ```
 discord(operation="ban_member", guild_id="...", user_id="...", reason="Spam", delete_message_seconds=86400)
-discord(operation="list_bans", guild_id="...", limit=50)
-discord(operation="unban_member", guild_id="...", user_id="...")
+```
+delete_message_seconds controls how much history to purge (0-604800 seconds/7 days).
+
+**Kick on first offence:**
+```
+discord(operation="kick_member", guild_id="...", user_id="...", reason="Warning issued")
 ```
 
-## Kick / timeout
-
+**Timeout (cool-down):**
 ```
-discord(operation="kick_member", guild_id="...", user_id="...", reason="Harassment")
-discord(operation="timeout_member", guild_id="...", user_id="...", communication_disabled_until="2026-06-09T12:00:00.000Z", reason="Cool down")
+discord(operation="timeout_member", guild_id="...", user_id="...", duration_minutes=60, reason="Heated discussion")
 ```
 
-## Roles
+### 4. Manage Roles (Alternative to Moderation)
 
+For minor infractions, consider role-based restrictions instead of bans:
 ```
 discord(operation="list_roles", guild_id="...")
 discord(operation="assign_role", guild_id="...", user_id="...", role_id="...")
@@ -49,8 +60,6 @@ discord(operation="remove_role", guild_id="...", user_id="...", role_id="...")
 
 ## Safety
 
-- Destructive ops may be blocked when `DISCORD_DEEPFANG_PREFLIGHT=1` until `DISCORD_DEEPFANG_CONFIRM=1`.
-- Message content from `get_messages` is sanitized and wrapped as untrusted data for MCP hosts.
-- Always verify guild and user IDs before irreversible actions.
-
-See also: bundled `discord-ops` skill for discovery and messaging basics.
+- Destructive operations (ban, delete) can be gated behind `DISCORD_DEEPFANG_PREFLIGHT=1`
+- Audit log entries are immutable on Discord's side — always check before acting
+- Rate limits apply: 5 channels/min, 5 invites/min, 10 messages/min

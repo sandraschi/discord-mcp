@@ -3,6 +3,7 @@ import AppLayout from "./components/layout/AppLayout";
 import Apps from "./pages/Apps";
 import AuditLog from "./pages/AuditLog";
 import Bans from "./pages/Bans";
+import Bots from "./pages/Bots";
 import Channels from "./pages/Channels";
 import Chat from "./pages/Chat";
 import Comms from "./pages/Comms";
@@ -22,6 +23,7 @@ import Roles from "./pages/Roles";
 import ScheduledMessages from "./pages/ScheduledMessages";
 import SendMessage from "./pages/SendMessage";
 import Settings from "./pages/Settings";
+import ServerTree from "./pages/ServerTree";
 import Skills from "./pages/Skills";
 import Stats from "./pages/Stats";
 import Tools from "./pages/Tools";
@@ -36,7 +38,9 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/embed-builder" element={<EmbedBuilder />} />
         <Route path="/guilds" element={<Guilds />} />
+        <Route path="/bots" element={<Bots />} />
         <Route path="/channels" element={<Channels />} />
+        <Route path="/tree" element={<ServerTree />} />
         <Route path="/invites" element={<Invites />} />
         <Route path="/members" element={<Members />} />
         <Route path="/bans" element={<Bans />} />

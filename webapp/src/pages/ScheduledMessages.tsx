@@ -1,6 +1,7 @@
 import { AlertCircle, Calendar, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { api, type Guild, type Channel } from "../lib/api";
+import { api, type Channel } from "../lib/api";
+import { useGuildPicker } from "../lib/useGuildPicker";
 
 interface ScheduledMessage {
   id: number;
@@ -26,18 +27,13 @@ export default function ScheduledMessages() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
-  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const { guilds, guildId, setGuildId, showPicker } = useGuildPicker();
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [guildId, setGuildId] = useState("");
   const [channelId, setChannelId] = useState("");
   const [content, setContent] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [creating, setCreating] = useState(false);
   const [createErr, setCreateErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    api.getGuilds().then((r) => setGuilds(r.guilds ?? [])).catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (guildId) api.getChannels(guildId).then((r) => setChannels(r.channels?.filter((c: Channel) => c.type === 0) ?? [])).catch(() => {});
@@ -102,7 +98,9 @@ export default function ScheduledMessages() {
         <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 p-5 space-y-3">
           <div className="flex items-center justify-between"><h3 className="text-sm font-bold text-slate-200">New Scheduled Message</h3><button type="button" onClick={() => setShowCreate(false)} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button></div>
           <div className="flex flex-wrap gap-3">
-            <select value={guildId} onChange={(e) => setGuildId(e.target.value)} className="rounded-xl bg-[#1a1a1e] border border-white/10 px-4 py-2 text-slate-200 min-w-[180px] flex-1"><option value="">Guild</option>{guilds.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
+            {showPicker && (
+              <select value={guildId} onChange={(e) => setGuildId(e.target.value)} className="rounded-xl bg-[#1a1a1e] border border-white/10 px-4 py-2 text-slate-200 min-w-[180px] flex-1"><option value="">Guild</option>{guilds.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
+            )}
             <select value={channelId} onChange={(e) => setChannelId(e.target.value)} className="rounded-xl bg-[#1a1a1e] border border-white/10 px-4 py-2 text-slate-200 min-w-[180px] flex-1"><option value="">Channel</option>{channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}</select>
             <input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} className="rounded-xl bg-[#1a1a1e] border border-white/10 px-4 py-2 text-slate-200 text-sm" />
           </div>

@@ -195,3 +195,120 @@ async def test_delete_channel_api_error():
         out = await discord_tool(operation="delete_channel", channel_id="c1")
     assert out["success"] is False
     assert "403" in out["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_channel_success():
+    body = {"id": "c1", "name": "fleet-freecad", "type": 0, "parent_id": "cat1", "topic": "hi"}
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(200, json_body=body),
+    ):
+        out = await discord_tool(operation="get_channel", channel_id="c1")
+    assert out["success"] is True
+    assert out["channel"]["name"] == "fleet-freecad"
+    assert out["channel"]["parent_id"] == "cat1"
+
+
+@pytest.mark.asyncio
+async def test_update_channel_requires_field():
+    out = await discord_tool(operation="update_channel", channel_id="c1")
+    assert out["success"] is False
+    assert "at least one field" in out["error"]
+
+
+@pytest.mark.asyncio
+async def test_update_channel_moves_to_category():
+    body = {"id": "c1", "name": "fleet-freecad", "type": 0, "parent_id": "cat1"}
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(200, json_body=body, method="PATCH"),
+    ) as mocked:
+        out = await discord_tool(operation="update_channel", channel_id="c1", parent_id="cat1")
+    assert out["success"] is True
+    assert out["channel"]["parent_id"] == "cat1"
+    args = mocked.call_args.args
+    assert args[1] == "PATCH"
+    assert args[2] == "https://discord.com/api/v10/channels/c1"
+
+
+@pytest.mark.asyncio
+async def test_update_guild_requires_field():
+    out = await discord_tool(operation="update_guild", guild_id="g1")
+    assert out["success"] is False
+    assert "at least one field" in out["error"]
+
+
+@pytest.mark.asyncio
+async def test_update_guild_success():
+    body = {"id": "g1", "name": "New Name", "description": "desc"}
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(200, json_body=body, method="PATCH"),
+    ):
+        out = await discord_tool(operation="update_guild", guild_id="g1", name="New Name")
+    assert out["success"] is True
+    assert out["name"] == "New Name"
+
+
+@pytest.mark.asyncio
+async def test_pin_message_success():
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(204, method="PUT"),
+    ):
+        out = await discord_tool(operation="pin_message", channel_id="c1", message_id="m1")
+    assert out["success"] is True
+    assert out["pinned"] is True
+
+
+@pytest.mark.asyncio
+async def test_unpin_message_missing_id():
+    out = await discord_tool(operation="unpin_message", channel_id="c1")
+    assert out["success"] is False
+    assert "requires channel_id and message_id" in out["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_pinned_messages_success():
+    body = [{"id": "m1", "author": {"username": "bot"}, "content": "hello"}]
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(200, json_body=body),
+    ):
+        out = await discord_tool(operation="get_pinned_messages", channel_id="c1")
+    assert out["success"] is True
+    assert out["count"] == 1
+    assert out["messages"][0]["id"] == "m1"
+
+
+@pytest.mark.asyncio
+async def test_create_thread_success():
+    body = {"id": "t1", "name": "AlphaProof", "parent_id": "c1", "type": 11}
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(201, json_body=body, method="POST"),
+    ):
+        out = await discord_tool(operation="create_thread", channel_id="c1", name="AlphaProof")
+    assert out["success"] is True
+    assert out["thread_id"] == "t1"
+    assert out["type"] == 11
+
+
+@pytest.mark.asyncio
+async def test_create_thread_from_message():
+    body = {"id": "t2", "name": "thread", "parent_id": "c1", "type": 11}
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(201, json_body=body, method="POST"),
+    ) as mocked:
+        out = await discord_tool(operation="create_thread", channel_id="c1", name="thread", message_id="m1")
+    assert out["success"] is True
+    assert "/messages/m1/threads" in mocked.call_args.args[2]

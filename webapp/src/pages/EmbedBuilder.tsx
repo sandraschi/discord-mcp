@@ -1,6 +1,7 @@
 import { AlertCircle, Eye, MessageSquare, Send, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api, type Guild, type Channel } from "../lib/api";
+import { api, type Channel } from "../lib/api";
+import { useGuildPicker } from "../lib/useGuildPicker";
 
 interface EmbedField {
   name: string;
@@ -32,9 +33,13 @@ const COLOR_PRESETS = [
 ];
 
 export default function EmbedBuilder() {
-  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const {
+    guilds,
+    guildId: selectedGuildId,
+    setGuildId: setSelectedGuildId,
+    showPicker,
+  } = useGuildPicker();
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [selectedGuildId, setSelectedGuildId] = useState("");
   const [selectedChannelId, setSelectedChannelId] = useState("");
   const [embed, setEmbed] = useState<Embed>({
     title: "", description: "", color: "#5865F2",
@@ -45,10 +50,6 @@ export default function EmbedBuilder() {
   const [sending, setSending] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
-  useEffect(() => {
-    api.getGuilds().then((r) => setGuilds(r.guilds ?? [])).catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (selectedGuildId) {
@@ -83,7 +84,7 @@ export default function EmbedBuilder() {
     <div className="space-y-6 py-4 max-w-5xl">
       <div className="flex items-center gap-4">
         <MessageSquare className="text-indigo-400 w-8 h-8" />
-        <div><h1 className="text-2xl font-bold text-white tracking-tight">Embed Builder</h1><p className="text-slate-400 text-sm">Compose rich embeds and send to a channel</p></div>
+        <div><h1 className="text-2xl font-bold text-white tracking-tight">Embed Builder</h1><p className="text-slate-400 text-sm">Embeds are rich, formatted messages (title, color, image) — compose one and send it</p></div>
       </div>
 
       {err && <div className="flex items-center gap-3 p-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-200"><AlertCircle className="w-5 h-5" /><p className="text-sm">{err}</p></div>}
@@ -95,10 +96,12 @@ export default function EmbedBuilder() {
             <h2 className="text-sm font-bold text-slate-200">Compose</h2>
 
             <div className="flex gap-2 flex-wrap">
-              <select value={selectedGuildId} onChange={(e) => setSelectedGuildId(e.target.value)} className="flex-1 rounded-xl bg-zinc-800 text-zinc-100 border border-zinc-600 px-3 py-2 text-sm">
-                <option value="">Guild</option>
-                {guilds.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
+              {showPicker && (
+                <select value={selectedGuildId} onChange={(e) => setSelectedGuildId(e.target.value)} className="flex-1 rounded-xl bg-zinc-800 text-zinc-100 border border-zinc-600 px-3 py-2 text-sm">
+                  <option value="">Guild</option>
+                  {guilds.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              )}
               <select value={selectedChannelId} onChange={(e) => setSelectedChannelId(e.target.value)} className="flex-1 rounded-xl bg-zinc-800 text-zinc-100 border border-zinc-600 px-3 py-2 text-sm">
                 <option value="">Channel</option>
                 {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}

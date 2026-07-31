@@ -9,10 +9,13 @@ import {
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import MessageViewer, { type ViewMode } from "../components/MessageViewer";
-import { api, type MessagesResponse, type Thread } from "../lib/api";
+import { api, type Channel, type MessagesResponse, type Thread } from "../lib/api";
 import { exportCSV, exportJSON } from "../lib/export";
+import { useGuildPicker } from "../lib/useGuildPicker";
 
 export default function Messages() {
+  const { guilds, guildId, setGuildId, showPicker } = useGuildPicker();
+  const [channels, setChannels] = useState<Channel[]>([]);
   const location = useLocation();
   const stateChannelId =
     (location.state as { channelId?: string } | null)?.channelId ?? "";
@@ -20,6 +23,15 @@ export default function Messages() {
   useEffect(() => {
     if (stateChannelId) setChannelId(stateChannelId);
   }, [stateChannelId]);
+  useEffect(() => {
+    if (!guildId) return;
+    api
+      .getChannels(guildId)
+      .then((r) =>
+        setChannels((r.channels ?? []).filter((c) => c.type === 0 || c.type === 5)),
+      )
+      .catch(() => {});
+  }, [guildId]);
   const [limit, setLimit] = useState(50);
   const [data, setData] = useState<MessagesResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -106,7 +118,7 @@ export default function Messages() {
             Messages
           </h1>
           <p className="text-slate-400 text-sm">
-            Read recent messages from a channel (paste channel ID)
+            Read recent messages from a channel — pick a server and channel below
           </p>
         </div>
       </div>
@@ -119,13 +131,32 @@ export default function Messages() {
       )}
 
       <div className="flex flex-wrap items-center gap-4">
-        <input
-          type="text"
-          placeholder="Channel ID"
+        {showPicker && (
+          <select
+            value={guildId}
+            onChange={(e) => setGuildId(e.target.value)}
+            className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[180px]"
+          >
+            <option value="">Select server…</option>
+            {guilds.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <select
           value={channelId}
           onChange={(e) => setChannelId(e.target.value)}
-          className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[240px] font-mono"
-        />
+          className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[240px]"
+        >
+          <option value="">Select channel…</option>
+          {channels.map((c) => (
+            <option key={c.id} value={c.id}>
+              #{c.name}
+            </option>
+          ))}
+        </select>
         <select
           value={limit}
           onChange={(e) => setLimit(Number(e.target.value))}

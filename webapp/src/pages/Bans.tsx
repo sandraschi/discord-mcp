@@ -1,16 +1,12 @@
 import { AlertCircle, Ban } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  api,
-  type BanEntry,
-  type Guild,
-  type GuildsResponse,
-} from "../lib/api";
+import { api, type BanEntry, type Member } from "../lib/api";
+import { useGuildPicker } from "../lib/useGuildPicker";
 
 export default function Bans() {
-  const [guilds, setGuilds] = useState<Guild[]>([]);
-  const [guildId, setGuildId] = useState("");
+  const { guilds, guildId, setGuildId, showPicker } = useGuildPicker();
   const [bans, setBans] = useState<BanEntry[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [userId, setUserId] = useState("");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,11 +14,15 @@ export default function Bans() {
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!guildId) return;
     api
-      .getGuilds()
-      .then((r: GuildsResponse) => setGuilds(r.guilds ?? []))
-      .catch((e) => setErr(e.message));
-  }, []);
+      .getMembers(guildId, 1000)
+      .then((r) => setMembers(r.members ?? []))
+      .catch(() => {});
+  }, [guildId]);
+
+  const memberName = (id: string) =>
+    members.find((m) => m.user_id === id)?.username ?? id;
 
   const loadBans = () => {
     if (!guildId) return;
@@ -45,7 +45,7 @@ export default function Bans() {
     setMsg(null);
     try {
       await api.banMember(guildId, userId, reason);
-      setMsg(`Banned ${userId}`);
+      setMsg(`Banned ${memberName(userId)}`);
       setUserId("");
       loadBans();
     } catch (e) {
@@ -71,7 +71,7 @@ export default function Bans() {
         <Ban className="text-red-400 w-8 h-8" />
         <div>
           <h1 className="text-2xl font-bold text-white">Bans</h1>
-          <p className="text-slate-400 text-sm">List, ban, and unban members</p>
+          <p className="text-slate-400 text-sm">Ban members to keep them out — see who is banned and why</p>
         </div>
       </div>
 
@@ -84,32 +84,41 @@ export default function Bans() {
       {msg && <p className="text-emerald-300 text-sm">{msg}</p>}
 
       <div className="flex flex-wrap gap-4 items-end">
-        <div>
-          <label className="text-slate-300 text-sm block mb-1">Guild</label>
-          <select
-            value={guildId}
-            onChange={(e) => setGuildId(e.target.value)}
-            className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px]"
-          >
-            <option value="">Select server</option>
-            {guilds.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {showPicker && (
+          <div>
+            <label className="text-slate-300 text-sm block mb-1">Guild</label>
+            <select
+              value={guildId}
+              onChange={(e) => setGuildId(e.target.value)}
+              className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px]"
+            >
+              <option value="">Select server</option>
+              {guilds.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 p-4 space-y-3">
         <h2 className="text-white font-semibold">Ban user</h2>
         <div className="flex flex-wrap gap-3">
-          <input
+          <select
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
-            placeholder="User ID"
-            className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200"
-          />
+            className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200 min-w-[200px]"
+          >
+            <option value="">Select member…</option>
+            {members.map((m) => (
+              <option key={m.user_id} value={m.user_id}>
+                {m.username}
+                {m.nick ? ` (${m.nick})` : ""}
+              </option>
+            ))}
+          </select>
           <input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
@@ -134,7 +143,6 @@ export default function Bans() {
             <thead>
               <tr className="border-b border-white/10">
                 <th className="p-4 text-sm text-slate-300">Username</th>
-                <th className="p-4 text-sm text-slate-300">User ID</th>
                 <th className="p-4 text-sm text-slate-300">Reason</th>
                 <th className="p-4 text-sm text-slate-300">Action</th>
               </tr>
@@ -143,7 +151,6 @@ export default function Bans() {
               {bans.map((b) => (
                 <tr key={b.user_id} className="border-b border-white/5">
                   <td className="p-4 text-slate-200">{b.username ?? "—"}</td>
-                  <td className="p-4 font-mono text-sm text-slate-400">{b.user_id}</td>
                   <td className="p-4 text-slate-400 text-sm">{b.reason || "—"}</td>
                   <td className="p-4">
                     <button

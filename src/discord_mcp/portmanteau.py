@@ -13,8 +13,8 @@ from .rag import ingest_messages, rag_query_async
 from .rate_limit import (
     check_create_channel,
     check_create_invite,
+    check_message_length,
     check_send_message,
-    get_rate_limit_config,
     record_create_channel,
     record_create_invite,
     record_send_message,
@@ -79,6 +79,22 @@ def _destructive_preflight_block(operation: str) -> dict | None:
         ),
         "preflight": True,
         "operation": operation,
+    }
+
+
+def _content_too_long_error(content: str) -> dict | None:
+    """Structured rejection for content over Discord's 2000-char cap (no silent truncation)."""
+    ok, err = check_message_length(content)
+    if ok:
+        return None
+    return {
+        "success": False,
+        "error_type": "content_too_long",
+        "error": err,
+        "suggestions": [
+            "Split the content into chunks of <= 2000 chars and send one message per chunk.",
+            "Prefer plain Discord markdown (bold, code blocks, links) - tables and relative-path images do not render.",
+        ],
     }
 
 
@@ -165,10 +181,17 @@ async def discord_tool(
             examples=[
                 "list_guilds",
                 "list_channels",
+                "get_channel",
+                "update_channel",
+                "update_guild",
                 "send_message",
                 "get_messages",
                 "edit_message",
                 "delete_message",
+                "pin_message",
+                "unpin_message",
+                "get_pinned_messages",
+                "create_thread",
                 "export_messages",
                 "list_active_threads",
                 "get_guild_stats",
@@ -206,20 +229,61 @@ async def discord_tool(
     ] = "list_guilds",
     guild_id: Annotated[str | None, Field(description="Discord guild (server) snowflake ID.")] = None,
     channel_id: Annotated[str | None, Field(description="Discord channel snowflake ID.")] = None,
-    content: Annotated[str | None, Field(description="Message content for send/edit/webhook.")] = None,
+    content: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Message content for send/edit/webhook. Discord HARD LIMIT: 2000 characters - "
+                "longer content is rejected with error_type 'content_too_long' (never truncated); "
+                "split long text into multiple send_message calls of <= 2000 chars each."
+            )
+        ),
+    ] = None,
     limit: Annotated[int, Field(description="Max results (1-100 for messages, 1-1000 for members/audit).", ge=1)] = 50,
     name: Annotated[
-        str | None, Field(description="Name for create_channel, create_guild, create_role, create_webhook.")
+        str | None,
+        Field(
+            description=(
+                "Name for create_channel, create_guild, create_role, create_webhook, create_thread, "
+                "or update_channel/update_guild rename."
+            )
+        ),
+    ] = None,
+    topic: Annotated[str | None, Field(description="Channel topic (max 1024 chars) for update_channel.")] = None,
+    position: Annotated[
+        int | None, Field(description="Channel position within its category for update_channel.")
+    ] = None,
+    nsfw: Annotated[bool | None, Field(description="Mark channel as age-restricted (nsfw) for update_channel.")] = None,
+    slowmode: Annotated[
+        int | None,
+        Field(
+            description="Slowmode in seconds (0-21600) for update_channel; sets rate_limit_per_user.",
+            ge=0,
+            le=21600,
+        ),
+    ] = None,
+    description: Annotated[
+        str | None, Field(description="Guild description for update_guild (max 1024 chars).")
     ] = None,
     channel_type: Annotated[int, Field(description="Channel type: 0=text, 2=voice, 4=category.", ge=0, le=15)] = 0,
-    parent_id: Annotated[str | None, Field(description="Parent category ID for create_channel.")] = None,
+    parent_id: Annotated[
+        str | None, Field(description="Parent category ID for create_channel or update_channel (move).")
+    ] = None,
     invite_code: Annotated[str | None, Field(description="Invite code to revoke (not full URL).")] = None,
     max_age: Annotated[int, Field(description="Invite max age in seconds (0-604800).", ge=0, le=604800)] = 86400,
     max_uses: Annotated[int, Field(description="Invite max uses (0=unlimited, max 100).", ge=0, le=100)] = 0,
     user_id: Annotated[
         str | None, Field(description="Discord user snowflake ID for get_member, ban, kick, DM, timeout.")
     ] = None,
-    message_id: Annotated[str | None, Field(description="Discord message snowflake ID for edit/delete.")] = None,
+    message_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Discord message snowflake ID for edit/delete/pin/unpin, or to start a thread "
+                "from that message via create_thread."
+            )
+        ),
+    ] = None,
     reason: Annotated[str, Field(description="Audit log reason for ban/kick/timeout.")] = "",
     delete_message_seconds: Annotated[
         int, Field(description="Delete messages from past N seconds on ban (0-604800).", ge=0, le=604800)
@@ -250,15 +314,23 @@ async def discord_tool(
     [RATIONALE] Portmanteau consolidates 36 Discord operations into one tool, avoiding dozens of
     atomic tools that bloat the MCP host context. The operation parameter dispatches internally.
 
-    Operations: list_guilds, list_channels, send_message, get_messages, edit_message, delete_message,
-    list_active_threads, get_guild_stats, create_channel, delete_channel, create_guild, create_invite, list_invites,
-    revoke_invite, list_members, get_member, ban_member, unban_member, kick_member, timeout_member,
-    list_bans, create_dm, list_roles, create_role, delete_role, assign_role, remove_role,
-    list_webhooks, create_webhook, delete_webhook, send_webhook, list_emojis, delete_emoji,
-    list_stickers, get_audit_log, rag_ingest, rag_query.
+    Operations: list_guilds, list_channels, get_channel, update_channel, update_guild, send_message,
+    get_messages, edit_message, delete_message, pin_message, unpin_message, get_pinned_messages,
+    create_thread, list_active_threads, get_guild_stats, create_channel, delete_channel, create_guild,
+    create_invite, list_invites, revoke_invite, list_members, get_member, ban_member, unban_member,
+    kick_member, timeout_member, list_bans, create_dm, list_roles, create_role, delete_role,
+    assign_role, remove_role, list_webhooks, create_webhook, delete_webhook, send_webhook, list_emojis,
+    delete_emoji, list_stickers, get_audit_log, rag_ingest, rag_query.
 
     ## Return Format
     {"success": bool, ...operation-specific fields, "error": str (on failure)}
+
+    ## Notes
+    - Content limit: Discord caps message content at 2000 characters. send_message, edit_message
+      and send_webhook reject over-limit content with error_type "content_too_long" instead of
+      truncating - split long text into multiple messages (<= 2000 chars each).
+    - Discord markdown: bold, italics, code blocks and links render; tables and relative-path
+      images do NOT - format content accordingly.
 
     ## Examples
     discord(operation="list_guilds")
@@ -288,6 +360,9 @@ async def discord_tool(
         if op_lower == "send_message":
             if not channel_id or not content:
                 return {"success": False, "error": "send_message requires channel_id and content."}
+            too_long = _content_too_long_error(content)
+            if too_long:
+                return too_long
             allowed, err = await check_send_message(channel_id, content)
             if not allowed:
                 return {"success": False, "error": err, "rate_limited": True}
@@ -307,10 +382,34 @@ async def discord_tool(
             if not channel_id:
                 return {"success": False, "error": "list_active_threads requires channel_id."}
             return await _list_active_threads(channel_id)
+        if op_lower == "create_thread":
+            if not channel_id or not name:
+                return {"success": False, "error": "create_thread requires channel_id and name."}
+            return await _create_thread(channel_id, name, message_id)
         if op_lower == "get_guild_stats":
             if not guild_id:
                 return {"success": False, "error": "get_guild_stats requires guild_id."}
             return await _get_guild_stats(guild_id)
+        if op_lower == "get_channel":
+            if not channel_id:
+                return {"success": False, "error": "get_channel requires channel_id."}
+            return await _get_channel(channel_id)
+        if op_lower == "update_channel":
+            if not channel_id:
+                return {"success": False, "error": "update_channel requires channel_id."}
+            return await _update_channel(
+                channel_id,
+                name=name,
+                topic=topic,
+                parent_id=parent_id,
+                position=position,
+                nsfw=nsfw,
+                slowmode=slowmode,
+            )
+        if op_lower == "update_guild":
+            if not guild_id:
+                return {"success": False, "error": "update_guild requires guild_id."}
+            return await _update_guild(guild_id, name=name, description=description)
         if op_lower == "create_channel":
             if not guild_id or not name:
                 return {"success": False, "error": "create_channel requires guild_id and name."}
@@ -379,11 +478,26 @@ async def discord_tool(
         if op_lower == "edit_message":
             if not channel_id or not message_id or not content:
                 return {"success": False, "error": "edit_message requires channel_id, message_id, and content."}
+            too_long = _content_too_long_error(content)
+            if too_long:
+                return too_long
             return await _edit_message(channel_id, message_id, content)
         if op_lower == "delete_message":
             if not channel_id or not message_id:
                 return {"success": False, "error": "delete_message requires channel_id and message_id."}
             return await _delete_message(channel_id, message_id, reason)
+        if op_lower == "pin_message":
+            if not channel_id or not message_id:
+                return {"success": False, "error": "pin_message requires channel_id and message_id."}
+            return await _pin_message(channel_id, message_id)
+        if op_lower == "unpin_message":
+            if not channel_id or not message_id:
+                return {"success": False, "error": "unpin_message requires channel_id and message_id."}
+            return await _unpin_message(channel_id, message_id)
+        if op_lower == "get_pinned_messages":
+            if not channel_id:
+                return {"success": False, "error": "get_pinned_messages requires channel_id."}
+            return await _get_pinned_messages(channel_id)
         if op_lower == "create_dm":
             if not user_id:
                 return {"success": False, "error": "create_dm requires user_id (recipient)."}
@@ -443,6 +557,9 @@ async def discord_tool(
         if op_lower == "send_webhook":
             if not webhook_id or not webhook_token or not content:
                 return {"success": False, "error": "send_webhook requires webhook_id, webhook_token, and content."}
+            too_long = _content_too_long_error(content)
+            if too_long:
+                return too_long
             return await _send_webhook(webhook_id, webhook_token, content)
         if op_lower == "list_emojis":
             if not guild_id:
@@ -493,20 +610,26 @@ async def _list_channels(guild_id: str) -> dict:
         if r.status_code != 200:
             return _discord_api_error(r)
         data = r.json()
-        channels = [{"id": c["id"], "name": c.get("name", ""), "type": c.get("type", 0)} for c in data]
+        channels = [
+            {
+                "id": c["id"],
+                "name": c.get("name", ""),
+                "type": c.get("type", 0),
+                "parent_id": c.get("parent_id"),
+            }
+            for c in data
+        ]
         return {"success": True, "channels": channels, "count": len(channels)}
 
 
 async def _send_message(channel_id: str, content: str) -> dict:
-    max_len = min(get_rate_limit_config()["max_message_length"], 2000)
-    body = content[:max_len]
     async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
         r = await _discord_request(
             client,
             "POST",
             f"{DISCORD_API}/channels/{channel_id}/messages",
             headers=_headers(),
-            json={"content": body},
+            json={"content": content},
         )
         if r.status_code not in (200, 201):
             return _discord_api_error(r)
@@ -628,6 +751,85 @@ async def _list_active_threads(channel_id: str) -> dict:
         return {"success": True, "threads": out, "count": len(out)}
 
 
+async def _create_thread(channel_id: str, name: str, message_id: str | None = None) -> dict:
+    if message_id:
+        url = f"{DISCORD_API}/channels/{channel_id}/messages/{message_id}/threads"
+    else:
+        url = f"{DISCORD_API}/channels/{channel_id}/threads"
+    payload = {"name": name}
+    if not message_id:
+        payload["type"] = 11  # public thread
+    async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
+        r = await _discord_request(client, "POST", url, headers=_headers(), json=payload)
+        if r.status_code not in (200, 201):
+            return _discord_api_error(r)
+        t = r.json()
+        return {
+            "success": True,
+            "thread_id": t.get("id"),
+            "name": t.get("name", ""),
+            "parent_id": t.get("parent_id"),
+            "type": t.get("type"),
+        }
+
+
+def _serialize_channel(c: dict) -> dict:
+    return {
+        "id": c.get("id"),
+        "name": sanitize_text(c.get("name", "")),
+        "type": c.get("type", 0),
+        "parent_id": c.get("parent_id"),
+        "topic": sanitize_text(c.get("topic") or ""),
+        "position": c.get("position"),
+        "nsfw": c.get("nsfw", False),
+        "slowmode": c.get("rate_limit_per_user", 0),
+    }
+
+
+async def _get_channel(channel_id: str) -> dict:
+    async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
+        r = await _discord_request(client, "GET", f"{DISCORD_API}/channels/{channel_id}", headers=_headers())
+        if r.status_code != 200:
+            return _discord_api_error(r)
+        return {"success": True, "channel": _serialize_channel(r.json())}
+
+
+async def _update_channel(
+    channel_id: str,
+    name: str | None = None,
+    topic: str | None = None,
+    parent_id: str | None = None,
+    position: int | None = None,
+    nsfw: bool | None = None,
+    slowmode: int | None = None,
+) -> dict:
+    payload: dict = {}
+    if name is not None:
+        payload["name"] = name
+    if topic is not None:
+        payload["topic"] = topic
+    if parent_id is not None:
+        payload["parent_id"] = parent_id
+    if position is not None:
+        payload["position"] = position
+    if nsfw is not None:
+        payload["nsfw"] = nsfw
+    if slowmode is not None:
+        payload["rate_limit_per_user"] = slowmode
+    if not payload:
+        return {
+            "success": False,
+            "error": "update_channel requires at least one field: name, topic, parent_id, position, nsfw, slowmode.",
+        }
+    async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
+        r = await _discord_request(
+            client, "PATCH", f"{DISCORD_API}/channels/{channel_id}", headers=_headers(), json=payload
+        )
+        if r.status_code != 200:
+            return _discord_api_error(r)
+        return {"success": True, "channel": _serialize_channel(r.json())}
+
+
 async def _get_guild_stats(guild_id: str) -> dict:
     async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
         r = await _discord_request(
@@ -712,6 +914,29 @@ async def _create_guild(name: str) -> dict:
                 ),
             }
         return _discord_api_error(r)
+
+
+async def _update_guild(guild_id: str, name: str | None = None, description: str | None = None) -> dict:
+    payload: dict = {}
+    if name is not None:
+        payload["name"] = name[:100]
+    if description is not None:
+        payload["description"] = description[:1024]
+    if not payload:
+        return {"success": False, "error": "update_guild requires at least one field: name, description."}
+    async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
+        r = await _discord_request(
+            client, "PATCH", f"{DISCORD_API}/guilds/{guild_id}", headers=_headers(), json=payload
+        )
+        if r.status_code != 200:
+            return _discord_api_error(r)
+        g = r.json()
+        return {
+            "success": True,
+            "guild_id": g.get("id"),
+            "name": g.get("name"),
+            "description": g.get("description"),
+        }
 
 
 async def _create_invite(channel_id: str, max_age: int = 86400, max_uses: int = 0) -> dict:
@@ -833,7 +1058,7 @@ async def _edit_message(channel_id: str, message_id: str, content: str) -> dict:
             "PATCH",
             f"{DISCORD_API}/channels/{channel_id}/messages/{message_id}",
             headers=_headers(),
-            json={"content": content[:2000]},
+            json={"content": content},
         )
         if r.status_code != 200:
             return _discord_api_error(r)
@@ -854,6 +1079,38 @@ async def _delete_message(channel_id: str, message_id: str, reason: str = "") ->
         if r.status_code != 204:
             return _discord_api_error(r)
         return {"success": True, "message_id": message_id, "channel_id": channel_id, "deleted": True}
+
+
+async def _pin_message(channel_id: str, message_id: str) -> dict:
+    async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
+        r = await _discord_request(
+            client, "PUT", f"{DISCORD_API}/channels/{channel_id}/pins/{message_id}", headers=_headers()
+        )
+        if r.status_code not in (200, 204):
+            return _discord_api_error(r)
+        return {"success": True, "message_id": message_id, "channel_id": channel_id, "pinned": True}
+
+
+async def _unpin_message(channel_id: str, message_id: str) -> dict:
+    async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
+        r = await _discord_request(
+            client, "DELETE", f"{DISCORD_API}/channels/{channel_id}/pins/{message_id}", headers=_headers()
+        )
+        if r.status_code == 404:
+            return {"success": False, "error": "Message is not pinned in this channel."}
+        if r.status_code != 204:
+            return _discord_api_error(r)
+        return {"success": True, "message_id": message_id, "channel_id": channel_id, "pinned": False}
+
+
+async def _get_pinned_messages(channel_id: str) -> dict:
+    async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
+        r = await _discord_request(client, "GET", f"{DISCORD_API}/channels/{channel_id}/pins", headers=_headers())
+        if r.status_code != 200:
+            return _discord_api_error(r)
+        data = r.json()
+        messages = [_serialize_message(m) for m in data] if isinstance(data, list) else []
+        return {"success": True, "messages": messages, "count": len(messages)}
 
 
 async def _create_dm(recipient_id: str) -> dict:
@@ -1115,7 +1372,7 @@ async def _send_webhook(webhook_id: str, webhook_token: str, content: str) -> di
         r = await client.post(
             f"{DISCORD_API}/webhooks/{webhook_id}/{webhook_token}?wait=true",
             headers={"Content-Type": "application/json"},
-            json={"content": content[:2000]},
+            json={"content": content},
         )
         if r.status_code in (200, 201):
             data = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
@@ -1178,6 +1435,64 @@ async def _list_stickers(guild_id: str) -> dict:
         return {"success": True, "stickers": stickers, "count": len(stickers)}
 
 
+_AUDIT_ACTION_LABELS: dict[int, str] = {
+    1: "Server updated",
+    10: "Channel created",
+    11: "Channel updated",
+    12: "Channel deleted",
+    13: "Permission overwrite created",
+    14: "Permission overwrite updated",
+    15: "Permission overwrite deleted",
+    20: "Member kicked",
+    21: "Members pruned",
+    22: "Member banned",
+    23: "Member unbanned",
+    24: "Member updated",
+    25: "Member roles updated",
+    26: "Member moved",
+    27: "Member disconnected",
+    28: "Bot added",
+    30: "Role created",
+    31: "Role updated",
+    32: "Role deleted",
+    40: "Invite created",
+    41: "Invite updated",
+    42: "Invite deleted",
+    50: "Webhook created",
+    51: "Webhook updated",
+    52: "Webhook deleted",
+    60: "Emoji created",
+    61: "Emoji updated",
+    62: "Emoji deleted",
+    70: "Message deleted",
+    71: "Messages bulk deleted",
+    72: "Message pinned",
+    73: "Message unpinned",
+    74: "Message deleted by author",
+    75: "Message deleted by daemon",
+    80: "Integration created",
+    81: "Integration updated",
+    82: "Integration deleted",
+    90: "Sticker created",
+    91: "Sticker updated",
+    92: "Sticker deleted",
+    100: "Scheduled event created",
+    101: "Scheduled event updated",
+    102: "Scheduled event deleted",
+    110: "Thread created",
+    111: "Thread updated",
+    112: "Thread deleted",
+    121: "Voice channel status updated",
+    140: "Stage instance created",
+    141: "Stage instance updated",
+    142: "Stage instance deleted",
+    151: "Auto-mod rule created",
+    152: "Auto-mod rule updated",
+    153: "Auto-mod rule deleted",
+    154: "Message blocked by auto-mod",
+}
+
+
 async def _get_audit_log(
     guild_id: str, limit: int = 50, user_id: str | None = None, action_type: int | None = None
 ) -> dict:
@@ -1197,14 +1512,46 @@ async def _get_audit_log(
             return _discord_api_error(r)
         data = r.json()
         entries = data.get("audit_log_entries", [])
+        # Resolve names for the page: actors/targets are users, channels, roles or threads
+        names: dict[str, str] = {}
+        for u in data.get("users", []) or []:
+            names[u.get("id")] = u.get("global_name") or u.get("username") or u.get("id")
+        for t in data.get("threads", []) or []:
+            names[t.get("id")] = t.get("name")
+        for endpoint in (
+            f"{DISCORD_API}/guilds/{guild_id}/channels",
+            f"{DISCORD_API}/guilds/{guild_id}/roles",
+        ):
+            try:
+                nr = await _discord_request(client, "GET", endpoint, headers=_headers())
+                if nr.status_code == 200:
+                    for item in nr.json():
+                        names[item.get("id")] = item.get("name") or item.get("id")
+            except Exception as e:  # best-effort name resolution
+                logger.debug("Audit log name resolution failed for %s: %s", endpoint, e)
+        try:
+            mr = await _discord_request(
+                client, "GET", f"{DISCORD_API}/guilds/{guild_id}/members?limit=1000", headers=_headers()
+            )
+            if mr.status_code == 200:
+                for m in mr.json():
+                    u = m.get("user") or {}
+                    names.setdefault(u.get("id"), u.get("username") or u.get("id"))
+        except Exception as e:  # GUILD_MEMBERS intent may be off
+            logger.debug("Audit log member resolution skipped: %s", e)
         out = []
         for entry in entries:
+            target_id = entry.get("target_id")
+            actor_id = entry.get("user_id")
             out.append(
                 {
                     "id": entry.get("id"),
                     "action_type": entry.get("action_type"),
-                    "user_id": entry.get("user_id"),
-                    "target_id": entry.get("target_id"),
+                    "action_label": _AUDIT_ACTION_LABELS.get(entry.get("action_type"), "Unknown action"),
+                    "user_id": actor_id,
+                    "user_name": names.get(actor_id) if actor_id else None,
+                    "target_id": target_id,
+                    "target_name": names.get(target_id) if target_id else None,
                     "reason": (entry.get("reason") or "")[:500],
                     "created_at": entry.get("created_at"),
                 }

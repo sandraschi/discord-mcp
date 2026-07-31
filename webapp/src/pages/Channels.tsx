@@ -5,11 +5,10 @@ import {
   api,
   type Channel,
   type ChannelsResponse,
-  type Guild,
-  type GuildsResponse,
 } from "../lib/api";
 import { exportCSV, exportJSON } from "../lib/export";
 import { addChannel, getFavorites, removeChannel } from "../lib/favorites";
+import { useGuildPicker } from "../lib/useGuildPicker";
 
 const CHANNEL_TYPE_NAMES: Record<number, string> = {
   0: "Text",
@@ -22,23 +21,19 @@ export default function Channels() {
   const location = useLocation();
   const navigate = useNavigate();
   const stateGuildId = (location.state as { guildId?: string } | null)?.guildId;
-  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const {
+    guilds,
+    guildId: selectedGuildId,
+    setGuildId: setSelectedGuildId,
+    showPicker,
+  } = useGuildPicker();
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [selectedGuildId, setSelectedGuildId] = useState<string>(
-    stateGuildId ?? "",
-  );
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [favoriteChannelIds, setFavoriteChannelIds] = useState<Set<string>>(
     () => new Set(getFavorites().channels.map((c) => c.id)),
   );
 
-  useEffect(() => {
-    api
-      .getGuilds()
-      .then((r: GuildsResponse) => setGuilds(r.guilds ?? []))
-      .catch((e) => setErr(e.message));
-  }, []);
   useEffect(() => {
     if (stateGuildId) setSelectedGuildId(stateGuildId);
   }, [stateGuildId]);
@@ -129,7 +124,7 @@ export default function Channels() {
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Channels
           </h1>
-          <p className="text-slate-400 text-sm">List channels by guild</p>
+          <p className="text-slate-400 text-sm">List channels in a server</p>
         </div>
       </div>
 
@@ -141,20 +136,24 @@ export default function Channels() {
       )}
 
       <div className="flex flex-wrap items-center gap-4">
-        <label htmlFor="guild-select" className="text-slate-300 text-sm font-medium">Guild</label>
-        <select
-          id="guild-select"
-          value={selectedGuildId}
-          onChange={(e) => setSelectedGuildId(e.target.value)}
-          className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px]"
-        >
-          <option value="">Select a server</option>
-          {guilds.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
+        {showPicker && (
+          <>
+            <label htmlFor="guild-select" className="text-slate-300 text-sm font-medium">Guild</label>
+            <select
+              id="guild-select"
+              value={selectedGuildId}
+              onChange={(e) => setSelectedGuildId(e.target.value)}
+              className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px]"
+            >
+              <option value="">Select a server</option>
+              {guilds.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         {selectedGuildId && (
           <div className="flex gap-2">
             <button
@@ -233,7 +232,6 @@ export default function Channels() {
               <tr className="border-b border-white/10">
                 <th className="p-4 w-10 text-sm font-bold text-slate-300"></th>
                 <th className="p-4 text-sm font-bold text-slate-300">Name</th>
-                <th className="p-4 text-sm font-bold text-slate-300">ID</th>
                 <th className="p-4 text-sm font-bold text-slate-300">Type</th>
                 <th className="p-4 w-12"></th>
               </tr>
@@ -273,9 +271,6 @@ export default function Channels() {
                       {c.type === 0 && <MessageSquare className="w-3.5 h-3.5 text-slate-500" />}
                       {c.name}
                     </button>
-                  </td>
-                  <td className="p-4 text-slate-400 font-mono text-sm">
-                    {c.id}
                   </td>
                   <td className="p-4 text-slate-400">
                     {CHANNEL_TYPE_NAMES[c.type] ?? c.type}

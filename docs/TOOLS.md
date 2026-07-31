@@ -10,27 +10,34 @@
 
 ## `discord(operation=…)`
 
-Single entry point for **36 operations**. Returns `{"success": bool, …}` with operation-specific fields or `error` on failure.
+Single entry point for **43 operations**. Returns `{"success": bool, …}` with operation-specific fields or `error` on failure.
 
 ### Discovery
 
 | Operation | Key parameters |
 |-----------|----------------|
-| `list_guilds` | — |
-| `list_channels` | `guild_id` |
+| `list_guilds` | - |
+| `list_channels` | `guild_id` (returns `parent_id` for hierarchy) |
+| `get_channel` | `channel_id` |
+| `update_channel` | `channel_id` + at least one of `name`, `topic`, `parent_id`, `position`, `nsfw`, `slowmode` |
+| `update_guild` | `guild_id` + `name` and/or `description` |
 | `list_members` | `guild_id`, `limit` (needs **GUILD_MEMBERS** intent) |
 | `get_member` | `guild_id`, `user_id` |
 | `get_guild_stats` | `guild_id` |
 | `list_active_threads` | `channel_id` |
+| `create_thread` | `channel_id`, `name`, optional `message_id` (thread from a message) |
 
 ### Messaging
 
 | Operation | Key parameters |
 |-----------|----------------|
-| `send_message` | `channel_id`, `content` |
+| `send_message` | `channel_id`, `content` (max 2000 chars; over-limit rejected, never truncated) |
 | `get_messages` | `channel_id`, `limit` |
 | `edit_message` | `channel_id`, `message_id`, `content` |
 | `delete_message` | `channel_id`, `message_id`, `reason` |
+| `pin_message` | `channel_id`, `message_id` |
+| `unpin_message` | `channel_id`, `message_id` |
+| `get_pinned_messages` | `channel_id` |
 | `create_dm` | `user_id` |
 
 ### Channels & invites
@@ -73,7 +80,7 @@ Single entry point for **36 operations**. Returns `{"success": bool, …}` with 
 | `delete_webhook` | `webhook_id` |
 | `send_webhook` | `webhook_id`, `webhook_token`, `content` |
 
-### Guild assets
+### Server assets
 
 | Operation | Key parameters |
 |-----------|----------------|
@@ -108,7 +115,7 @@ discord_help(category="moderation", topic="ban_member")
 ## `discord_agentic_workflow`
 
 ```
-discord_agentic_workflow(goal="List guilds and post a status ping to #general")
+discord_agentic_workflow(goal="List servers and post a status ping to #general")
 ```
 
 Returns a structured dict: `success`, `message`, `recommendations` (or error fields).

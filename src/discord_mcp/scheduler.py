@@ -1,12 +1,9 @@
 """Message scheduler — schedule messages to be sent at a future time."""
 
 import asyncio
-import json
 import logging
 import sqlite3
 import threading
-import time
-from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger("discord-mcp.scheduler")
@@ -42,6 +39,7 @@ def _get_conn() -> sqlite3.Connection:
 
 # --- CRUD ---
 
+
 def create_scheduled_message(guild_id: str, channel_id: str, content: str, scheduled_at: str) -> dict:
     conn = _get_conn()
     try:
@@ -72,7 +70,7 @@ def list_scheduled_messages(status: str | None = None, limit: int = 50) -> dict:
                 (limit,),
             ).fetchall()
         col_names = [d[0] for d in conn.description]
-        messages = [dict(zip(col_names, r)) for r in rows]
+        messages = [dict(zip(col_names, r, strict=False)) for r in rows]
         return {"success": True, "messages": messages, "count": len(messages)}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -98,6 +96,7 @@ def cancel_scheduled_message(msg_id: int) -> dict:
 
 
 # --- Worker ---
+
 
 async def _send_scheduled(conn: sqlite3.Connection, row: sqlite3.Row) -> None:
     """Send one scheduled message via the discord portmanteau."""

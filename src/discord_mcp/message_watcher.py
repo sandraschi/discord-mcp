@@ -115,6 +115,50 @@ async def _dispatch_inbound(config: dict[str, Any], raw_message: dict[str, Any])
     await _fire_webhook(config.get("webhook_url", ""), message)
     await _maybe_auto_reply(config, message)
 
+    try:
+        from .rules import evaluate_rules
+
+        await evaluate_rules(message)
+    except Exception as e:
+        logger.error("Rules evaluation failed: %s", e)
+
+    try:
+        from .slack_bridge import forward_to_slack
+
+        await forward_to_slack(message.get("channel_id"), message)
+    except Exception as e:
+        logger.error("Slack forwarding failed: %s", e)
+
+    try:
+        from .analytics import tracker
+
+        tracker.record_message()
+    except Exception as exc:
+        logger.debug("Failed to record analytics: %s", exc)
+
+    if config.get("auto_rag"):
+        try:
+            from .rag import ingest_messages
+
+            msg_dict = {
+                "id": message.get("id"),
+                "author": message.get("author"),
+                "content": message.get("content"),
+                "timestamp": message.get("timestamp"),
+            }
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                ingest_messages,
+                [msg_dict],
+                "",  # guild_name
+                "",  # channel_name
+                message.get("channel_id"),
+                message.get("guild_id"),
+            )
+        except Exception as e:
+            logger.error("Auto RAG ingestion failed: %s", e)
+
 
 async def _poll_loop(config: dict[str, Any]) -> None:
     interval_s = max(10, int(config.get("interval", 30)))
@@ -213,9 +257,7 @@ async def _gateway_loop(config: dict[str, Any]) -> None:
                         heartbeat_interval = d.get("heartbeat_interval", 45000) / 1000.0
                         if heartbeat_task:
                             heartbeat_task.cancel()
-                        heartbeat_task = asyncio.create_task(
-                            heartbeat_loop(heartbeat_interval or 30.0, seq_box)
-                        )
+                        heartbeat_task = asyncio.create_task(heartbeat_loop(heartbeat_interval or 30.0, seq_box))
                         identify = {
                             "op": 2,
                             "d": {
@@ -261,6 +303,7 @@ def start_message_watcher(
     channels: list[dict[str, Any]] | None = None,
     auto_reply: bool = False,
     auto_reply_template: str = "",
+    auto_rag: bool = False,
 ) -> dict[str, Any]:
     """Start background Discord message watcher."""
     global _watcher_task, _watcher_config
@@ -286,6 +329,7 @@ def start_message_watcher(
         "channels": chans,
         "auto_reply": auto_reply,
         "auto_reply_template": auto_reply_template,
+        "auto_rag": auto_rag,
     }
     loop = asyncio.get_event_loop()
     _watcher_task = loop.create_task(_run_watcher(_watcher_config))

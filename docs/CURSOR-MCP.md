@@ -56,8 +56,8 @@ For streamable HTTP (no stdio):
 
 In your MCP host, try:
 
-> List Discord guilds this bot can see.
+> List Discord servers this bot can see.
 
-Expected: JSON with guild names and IDs, or a clear error if `DISCORD_TOKEN` is missing.
+Expected: JSON with server names and IDs, or a clear error if `DISCORD_TOKEN` is missing.
 
 See [CONFIGURATION.md](./CONFIGURATION.md) for token and env details.

@@ -3,6 +3,7 @@ import { useState } from "react";
 
 const TABS = [
   "About Discord",
+  "Concepts",
   "What You Can Do",
   "MCP Tools",
   "RAG",
@@ -24,13 +25,15 @@ const TAB_CONTENT: Record<Tab, { title: string; html: string }> = {
     title: "About Discord",
     html: `
 ${S.h2("What is Discord?")}
-${S.p("Discord is a chat platform built around servers (called guilds in the API). Each guild contains channels (text, voice, announcement, categories), and users send messages, upload files, and interact within channels. Discord also supports roles, permissions, invites, webhooks, threads, emojis, stickers, and audit logging.")}
-${S.h2("Guilds vs Channels")}
-${S.p("A guild (server) is a container. Inside a guild you have channels — text channels for conversation, voice channels for audio, announcement channels for broadcasts, and category channels that group others. Each channel has a unique snowflake ID (a 64-bit timestamp-based identifier).")}
+${S.p("Discord is a chat platform built around servers — called \"guilds\" in the API (see the history note below). Each server contains channels (text, voice, announcement, categories), and users send messages, upload files, and interact within channels. Discord also supports roles, permissions, invites, webhooks, threads, emojis, stickers, and audit logging.")}
+${S.h2("Servers vs Channels")}
+${S.p("A server (the API says \"guild\" — a relic of Discord's gamer origins, see below) is a container. Inside a server you have channels — text channels for conversation, voice channels for audio, announcement channels for broadcasts, and category channels that group others. Each channel has a unique snowflake ID (a 64-bit timestamp-based identifier).")}
+${S.h2("A Short History — and a Word on Feature Creep")}
+${S.p("Discord launched in 2015 as a voice chat app for gamers. Its API still reflects that heritage: servers are called \"guilds\" (as in MMO guilds), and the system itself borrowed the language of gaming communities. Over a decade it kept bolting on features: text chat, streaming, screen share, threads, forum channels, apps and activities, in-app AI bots, and more — a shining example of feature creep, though arguably in the good sense: it grew from a gamer voice channel into a general-purpose community platform, and this dashboard exists because its bot API grew along with it. When you see \"guild\" in the API, read \"server\".")}
 ${S.h2("Bot Accounts vs User Accounts")}
 ${S.p("Your DISCORD_TOKEN is a bot token, not a user token. Bot accounts join servers via OAuth2 invite URLs, not by email login. Bot tokens start with the application ID encoded in base64. Unlike user tokens, bot tokens require explicitly enabling privileged intents (GUILD_MEMBERS, MESSAGE_CONTENT) in the Developer Portal.")}
 ${S.h2("Permissions & Intents")}
-${S.p("Intents are declared at the application level in the Discord Developer Portal and define what gateway events your bot receives. Permissions are per-guild and define what actions the bot can perform (send messages, ban members, manage channels, etc). The server admin configures permissions when inviting the bot via the OAuth2 URL. This server uses Administrator permission (bit 8) which grants all permissions.")}
+${S.p("Intents are declared at the application level in the Discord Developer Portal and define what gateway events your bot receives. Permissions are per-server and define what actions the bot can perform (send messages, ban members, manage channels, etc). The server admin configures permissions when inviting the bot via the OAuth2 URL. This server uses Administrator permission (bit 8) which grants all permissions.")}
 ${S.h2("Rate Limits")}
 ${S.p("Discord enforces per-route rate limits (HTTP 429). This server automatically retries up to 5 times with exponential backoff reading Discord's retry_after header. Additionally, the server applies its own anti-spam limits per-channel and globally — you can tune these via DISCORD_RATE_LIMIT_* env vars.")}
 ${S.h2("API Base URL")}
@@ -38,6 +41,46 @@ ${S.p("All Discord REST API calls go to https://discord.com/api/v10. The MCP ser
 
 ${S.h2("Discord vs Other Platforms")}
 ${S.p("Compared to Slack, Reddit, Telegram, and Teams, Discord has the best bot API for MCP-style automation — free servers, rich intents, real-time gateway, audit log, and no per-seat cost. See docs/PLATFORMS.md for a full comparison.")}
+`,
+  },
+  "Concepts": {
+    title: "Discord Concepts, Explained",
+    html: `
+${S.p("Discord has its own vocabulary. This page explains the non-obvious concepts this dashboard touches — what they are, why they exist, and what they're good for.")}
+
+${S.h2("Webhooks")}
+${S.p("A webhook is a URL that turns an HTTP request into a Discord message. You create one in a channel, get a URL like https://discord.com/api/webhooks/.../..., and then ANY program can POST text to that URL — no bot account, no login, no permissions needed.")}
+${S.p("Use them to push notifications: CI builds, GitHub commits, RSS feeds, server monitoring, or messages from other apps. They show up in chat under the webhook's name and avatar (you can set both when creating it). The URL is a secret — anyone who has it can post to the channel.")}
+${S.p("This dashboard lets you create, list, and delete webhooks in any channel the bot manages. See the Webhooks page.")}
+
+${S.h2("Audit Log")}
+${S.p("Discord keeps a built-in journal of administrative actions: who created/deleted a channel, banned a member, changed a role, added a bot, revoked an invite, and when. It cannot be edited or deleted by members — only users with View Audit Log permission can read it.")}
+${S.p("Use it to answer \"what happened and who did it\" — e.g. after a raid, or to verify your own automation ran correctly. The Audit log page decodes the raw entries into readable action names, actor names, and timestamps.")}
+
+${S.h2("Roles & Permissions")}
+${S.p("A role is a named bundle of permissions (send messages, kick members, manage channels, ...) plus a color and a position in the sidebar. Members can have several roles; their effective permissions are the union of all roles, plus the server-wide defaults.")}
+${S.p("Roles are how Discord does access control: mods get a Moderator role, visitors get a muted role, and so on. The Roles page lists, creates, deletes, and assigns them.")}
+
+${S.h2("Invites")}
+${S.p("An invite is a short link (discord.gg/xyz) that lets someone join a server without being added manually. You control how long it lasts (max age) and how many people can use it (max uses). Invites are the standard way to grow or share a server — see the Invites page.")}
+
+${S.h2("Threads")}
+${S.p("Threads are sub-conversations attached to a channel — a way to discuss one topic without cluttering the channel. Anyone in a text channel can start one; messages in a thread don't flood the main channel. The Server tree page shows active threads under each channel.")}
+
+${S.h2("Embedded Messages (Embeds)")}
+${S.p("An embed is a rich, structured message: a title, description, color bar, image, thumbnail, author, and footer — instead of plain text. Bots and webhooks use them for polished output. The Embed Builder page composes them visually and sends them.")}
+
+${S.h2("Snowflake IDs")}
+${S.p("Every Discord object (server, channel, message, user) has a snowflake ID — a long number like 1356636203041951844. It is not random: it encodes the creation timestamp. This dashboard resolves IDs to names wherever possible, so you rarely need to handle them.")}
+
+${S.h2("Intents vs Permissions")}
+${S.p("Two different gates control what a bot can do. Intents are declared once in the Developer Portal and define what real-time events the bot receives (e.g. GUILD_MEMBERS for the member list, MESSAGE_CONTENT to read message text). Permissions are per-server and define what actions the bot may take — the server owner grants them when inviting the bot. A bot needs BOTH: intents to see the data, permissions to act on it.")}
+
+${S.h2("Gateway vs REST")}
+${S.p("Discord has two APIs. REST is request/response — you ask for something and get an answer (what this dashboard mostly uses: send message, list channels, ...). The Gateway is a persistent real-time connection that pushes events to the bot (new messages, member joins). This server uses the Gateway only for the optional inbound message watcher; everything else is REST.")}
+
+${S.h2("Rate Limits")}
+${S.p("Discord limits how fast bots can call its API (HTTP 429 with a retry-after window) to protect the platform. This server retries automatically up to 5 times with backoff, and adds its own anti-spam limits so a misbehaving prompt can't flood a channel.")}
 `,
   },
   "What You Can Do": {
@@ -48,15 +91,15 @@ ${S.p("Send messages to any channel the bot can see. Edit or delete bot-sent mes
 ${S.h2("Moderation")}
 ${S.p("Ban, unban, kick, and timeout members. List bans with reasons. View audit log entries filtered by action type or user. Requires the bot to have Ban Members, Kick Members, and Moderate Members permissions, plus the GUILD_MEMBERS intent for member lookup.")}
 ${S.h2("Channel Management")}
-${S.p("List channels in a guild with their type and ID. Create new text, voice, or announcement channels. Delete channels. The Channels page in the dashboard has a Create button that opens a form — pick a name and type and it calls the Discord API immediately.")}
+${S.p("List channels in a server with their type and ID. Create new text, voice, or announcement channels. Rename, set topics, move channels into categories, pin messages, and create threads. The Channels page in the dashboard has a Create button that opens a form — pick a name and type and it calls the Discord API immediately.")}
 ${S.h2("Roles & Permissions")}
-${S.p("List all roles in a guild with their color and position. Create new roles, delete existing ones, assign roles to members, and remove roles. Useful for automated onboarding, temporary access, or moderation workflows.")}
+${S.p("List all roles in a server with their color and position. Create new roles, delete existing ones, assign roles to members, and remove roles. Useful for automated onboarding, temporary access, or moderation workflows.")}
 ${S.h2("Invites")}
-${S.p("Create invite links with configurable max age and max uses. List all active invites for a guild. Revoke invites that should no longer work.")}
+${S.p("Create invite links with configurable max age and max uses. List all active invites for a server. Revoke invites that should no longer work.")}
 ${S.h2("Webhooks")}
 ${S.p("Create webhooks in channels, list existing webhooks, execute webhooks with custom names and avatars, and delete webhooks. Webhooks let external services post messages to Discord without a bot.")}
 ${S.h2("Audit & Stats")}
-${S.p("View the audit log for moderation events. Get guild stats (member count, online count). Get channel stats. View guild bans with reasons.")}
+${S.p("View the audit log for moderation events. Get server stats (member count, online count). Get channel stats. View server bans with reasons.")}
 ${S.h2("RAG Search")}
 ${S.p("Ingest message history from any channel into a local LanceDB vector database. Then semantically search that history — find messages about a topic even if the exact words don't match. The ingested data persists across restarts.")}
 ${S.h2("Agentic Workflows")}
@@ -71,16 +114,16 @@ ${S.p("discord-mcp exposes one main tool, one agentic tool, and one help tool vi
 ${S.h2("discord(operation, ...)")}
 ${S.p("Unified entry point for all Discord API operations. The operation parameter selects which action to perform. Parameters are shared across operations (guild_id, channel_id, user_id, content, etc) — only those relevant to the chosen operation are required.")}
 
-${S.p("<strong>Guild operations:</strong>")}
+${S.p("<strong>Server operations:</strong>")}
 ${S.ul([
-  `${S.code("list_guilds")} — List all guilds the bot has joined`,
+  `${S.code("list_guilds")} — List all servers the bot has joined`,
   `${S.code("get_guild_stats(guild_id)")} — Member count, online count, owner`,
-  `${S.code("create_guild(name)")} — Create a new guild (user OAuth2 only)`,
+  `${S.code("create_guild(name)")} — Create a new server (user OAuth2 only)`,
 ])}
 
 ${S.p("<strong>Channel operations:</strong>")}
 ${S.ul([
-  `${S.code("list_channels(guild_id)")} — All channels in a guild with type`,
+  `${S.code("list_channels(guild_id)")} — All channels in a server with type`,
   `${S.code("create_channel(guild_id, name, type, parent_id)")} — Create text (0), voice (2), or announcement (5) channel`,
   `${S.code("delete_channel(channel_id)")} — Permanently delete a channel`,
   `${S.code("list_active_threads(channel_id)")} — Active threads in a channel`,

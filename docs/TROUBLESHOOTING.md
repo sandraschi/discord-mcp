@@ -42,7 +42,7 @@
 
 ## `create_guild` returns 403
 
-**Cause:** Bots cannot create guilds via this API — requires user OAuth2  
+**Cause:** Bots cannot create servers via this API — requires user OAuth2  
 **Fix:** Use a user token flow or create the server manually in Discord.
 
 ## Agentic workflow fails / no sampling

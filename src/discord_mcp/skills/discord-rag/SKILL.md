@@ -1,45 +1,43 @@
----
-name: discord-rag
-description: Ingest channel messages into LanceDB and run semantic search (discord rag_ingest / rag_query).
----
+# Discord RAG Skill
 
-# Discord MCP — RAG over messages
+## Overview
 
-**Description:** Turn Discord message history into a searchable knowledge base. Covers message indexing, semantic search across channels, user activity pattern extraction, topic clustering, and cross-channel knowledge retrieval.
+Retrieval-Augmented Generation over Discord message history. Ingest channel messages into a local LanceDB vector database, then search semantically — find messages about a topic even when the exact words don't match.
 
-## Trigger Phrases
+## How It Works
 
-- "Search past Discord messages about [topic]"
-- "What was decided about [feature] in [channel]?"
-- "Find all messages from [user] about [subject]"
-- "Summarize the discussion in [channel] from last week"
-- "What support questions were asked about [product]?"
-- "Index channel [name] for semantic search"
+1. `rag_ingest(channel_id, limit=50)` fetches recent messages, generates embeddings via sentence-transformers (all-MiniLM-L6-v2), and stores them in LanceDB at `data/discord_lancedb`.
+2. `rag_query(query_text, top_k=10)` finds the top_k most semantically similar messages and returns them with channel name, author, and timestamp.
 
-## Tools
-
-- `discord(operation='list_channels', guild_id='...')` — List available channels in a guild. Get channel_id for targeting.
-- `discord(operation='get_messages', channel_id='...', limit=50)` — Raw message fetch without RAG.
-- `discord(operation='rag_ingest', channel_id='...', limit=100, guild_name='...', channel_name='...', table_name='discord_messages')` — Ingest messages into LanceDB vector index. Embeds message content, author, and timestamp.
-- `discord(operation='rag_query', query_text='...', top_k=10, table_name='discord_messages')` — Semantic search over ingested messages. Returns content + author + timestamp + channel context.
+Data persists across restarts. You can use different table_name values to organize data from different channels or servers.
 
 ## Workflow
 
-1. **Channel discovery**: Call `discord(operation='list_channels', guild_id='...')` to find the target channel. Note the channel_id.
-2. **Ingest**: Call `discord(operation='rag_ingest', channel_id='...', limit=50)` to index recent messages. For full history, repeat with paginated limit calls.
-3. **Query**: Use `discord(operation='rag_query', query_text='...', top_k=10)` for semantic search. Prefer narrow, specific queries for best results.
-4. **Synthesis**: When returning results, cite channel, author, and timestamp. Summarize repeated themes across results.
+### 1. Ingest Messages
+```
+discord(operation="rag_ingest", channel_id="...", limit=100)
+```
+Start with a reasonable limit (50-100 messages). Larger ingests take longer due to embedding generation.
 
-## Notes
+### 2. Search
+```
+discord(operation="rag_query", query_text="discussion about deployment", top_k=10)
+```
+Prefer narrow, specific queries for best results.
 
-- Ingest pulls text via the same path as `get_messages`; large limits increase API load (rate limits apply).
-- Embeddings use local sentence-transformers + LanceDB paths under the server process. No external API calls.
-- Ingestion is incremental — re-ingesting the same channel with a higher limit adds new messages without duplicating.
-- Prefer narrow queries; cite channel and message context when summarizing hits.
-- `table_name` parameter allows multiple named indexes (e.g., per guild or per topic).
+### 3. Act on Results
+The returned messages include channel_id, author, timestamp, and the message content. From here you can:
+- Use `get_messages` to fetch the full thread context
+- Use `send_message` to respond in the same channel
+- Use `export_messages` to archive the discussion
 
-## Examples
+## Tips
 
-- "Find discussion about the new authentication flow." → `rag_query(query_text="new authentication flow", top_k=10)`
-- "Index the #support channel for RAG." → `rag_ingest(channel_id="123456", limit=200, guild_name="My Guild", channel_name="support")`
-- "What did Alice say about deployment last month?" → `rag_query(query_text="Alice deployment", top_k=5)`
+- Ingest separate channels into separate tables by setting `table_name="..."` — this keeps contexts clean.
+- The first ingest call loads the embedding model (takes ~5-10s). Subsequent queries are fast.
+- RAG requires `sentence-transformers` and its dependencies (installed via `uv sync --extra rag`).
+- Data is local-only. No external API calls are made during ingest or query.
+
+## Env Dependencies
+
+- `LANCEDB_DISCORD_PATH` — Override LanceDB storage path (default: `data/discord_lancedb`).

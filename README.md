@@ -4,14 +4,14 @@
   <a href="https://github.com/casey/just"><img src="https://img.shields.io/badge/just-ready_to_go-7c5cfc?style=flat-square&logo=just&logoColor=white" alt="Just"></a>
   <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff"></a>
   <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.13+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/tests-49%20passing-brightgreen?style=flat-square" alt="Tests"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/tests-67%20passing-brightgreen?style=flat-square" alt="Tests"></a>
   <a href="https://biomejs.dev"><img src="https://img.shields.io/badge/Linted_with-Biome-60a5fa?style=flat-square&logo=biome&logoColor=white" alt="Biome"></a>
   <a href="https://github.com/PrefectHQ/fastmcp"><img src="https://img.shields.io/badge/FastMCP-3.2-7c5cfc?style=flat-square" alt="FastMCP"></a>
 </p>
 
 Connect your Discord bot to MCP clients — list servers, send messages, moderate members, search message history with RAG, and run agentic workflows from Cursor or Claude Desktop.
 
-**v0.2.0** · 36 operations · FastMCP 3.2 · Comms lane · [Releases](https://github.com/sandraschi/discord-mcp/releases)
+**v0.3.0** · 43 operations · FastMCP 3.2 · Comms lane · [Releases](https://github.com/sandraschi/discord-mcp/releases)
 
 ---
 
@@ -28,9 +28,9 @@ Connect your Discord bot to MCP clients — list servers, send messages, moderat
 
 ## Features
 
-- **36 Discord operations** in one portmanteau tool — messaging, moderation, roles, webhooks, audit log, RAG
-- **Fleet web dashboard** — guilds, channels, messages, agentic chat, LanceDB search (ports **10756** / **10757**)
-- **Agentic workflow** — describe a goal; server uses sampling + tools (SEP-1577)
+- **43 Discord operations** in one portmanteau tool — messaging, moderation, roles, webhooks, audit log, channel management (create/update/move, pins, threads), RAG
+- **Fleet web dashboard** — servers catalog with global selection, channel tree, decoded audit log, servers, channels, messages, agentic chat, LanceDB search (ports **10756** / **10757**)
+- **Agentic workflow** — describe a goal; server uses sampling + tools (SEP-1577); model auto-resolves to an installed Ollama model
 - **Dual transport** — stdio for IDE hosts, streamable HTTP at `/mcp` for remote clients
 - **Built-in safety** — anti-spam rate limits, Discord 429 auto-retry, bind localhost only
 - **Bundled skills & prompts** — moderation playbook, RAG workflow, ops guides
@@ -56,11 +56,11 @@ Other install paths (just, Cursor, Claude Desktop, no-git): **[INSTALL.md](INSTA
 
 **List servers and post a message**
 
-> List my Discord guilds, then send "Fleet check-in OK" to channel `#general` in the first server.
+> List my Discord servers, then send "Fleet check-in OK" to channel `#general` in the first server.
 
 **Moderation assist**
 
-> Show recent audit log entries for guild `123456789` and summarize ban/kick events from the last 24 hours.
+> Show recent audit log entries for server `123456789` and summarize ban/kick events from the last 24 hours.
 
 **Search ingested history**
 
@@ -103,19 +103,19 @@ Fleet central mirror: [mcp-central-docs/projects/discord-mcp](https://github.com
 - **Discord bot token** — free at [Discord Developer Portal](https://discord.com/developers/applications)
 - Optional: [Ollama](https://ollama.com) for local agentic sampling when the MCP host has no LLM
 
-> **Guild limit:** Unverified bots can join **10 servers max**. To raise the cap, verify your bot
+> **Server limit:** Unverified bots can join **10 servers max**. To raise the cap, verify your bot
 > in Developer Portal → your application → Settings → Bot → Verification (requires description,
 > screenshots, privacy policy). Once verified, the bot can join up to 100 servers.
 >
-> **How guild masters add the bot:** Send them the invite URL. They open it, select their server,
+> **How server owners add the bot:** Send them the invite URL. They open it, select their server,
 > choose which permissions to grant (or keep the defaults from the URL), and Authorise. The bot
 > appears in their member list with a **BOT** tag.
 >
-> **What the bot can do depends on the permissions each guild master granted.** The invite URL
-> above requests Administrator (`permissions=8`), which gives full access. But the guild master
+> **What the bot can do depends on the permissions each server owner granted.** The invite URL
+> above requests Administrator (`permissions=8`), which gives full access. But the server owner
 > can reduce permissions during authorisation. With full Admin the bot can read/search/post
 > messages, moderate, manage channels/roles/webhooks, and view audit logs. With limited
-> permissions it can only do what was allowed. The permissions are per-guild, so the bot may be
+> permissions it can only do what was allowed. The permissions are per-server, so the bot may be
 > admin in one server and read-only in another.
 
 ---

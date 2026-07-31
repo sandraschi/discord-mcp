@@ -57,7 +57,7 @@ async def test_check_send_message_too_long():
     long_msg = "x" * 2001
     allowed, err = await check_send_message("chan1", long_msg)
     assert allowed is False
-    assert "exceeds limit" in (err or "")
+    assert "char limit" in (err or "")
 
 
 @pytest.mark.asyncio

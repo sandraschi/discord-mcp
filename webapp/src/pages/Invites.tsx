@@ -4,17 +4,20 @@ import {
   api,
   type Channel,
   type ChannelsResponse,
-  type Guild,
-  type GuildsResponse,
   type Invite,
   type InvitesResponse,
 } from "../lib/api";
 import { exportCSV, exportJSON } from "../lib/export";
+import { useGuildPicker } from "../lib/useGuildPicker";
 
 export default function Invites() {
-  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const {
+    guilds,
+    guildId: selectedGuildId,
+    setGuildId: setSelectedGuildId,
+    showPicker,
+  } = useGuildPicker();
   const [invites, setInvites] = useState<Invite[]>([]);
-  const [selectedGuildId, setSelectedGuildId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -32,13 +35,6 @@ export default function Invites() {
       setChannels(r.channels?.filter((c) => c.type === 0) ?? []);
     }).catch(() => {});
   };
-
-  useEffect(() => {
-    api
-      .getGuilds()
-      .then((r: GuildsResponse) => setGuilds(r.guilds ?? []))
-      .catch((e) => setErr(e.message));
-  }, []);
 
   useEffect(() => {
     if (!selectedGuildId) {
@@ -102,7 +98,7 @@ export default function Invites() {
             Invites
           </h1>
           <p className="text-slate-400 text-sm">
-            List and export invite links by guild
+            Share a link so people can join the server — control expiry and usage limits
           </p>
         </div>
       </div>
@@ -115,20 +111,24 @@ export default function Invites() {
       )}
 
       <div className="flex flex-wrap items-center gap-4">
-        <label htmlFor="guild-select" className="text-slate-300 text-sm font-medium">Guild</label>
-        <select
-          id="guild-select"
-          value={selectedGuildId}
-          onChange={(e) => setSelectedGuildId(e.target.value)}
-          className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px]"
-        >
-          <option value="">Select a server</option>
-          {guilds.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
+        {showPicker && (
+          <>
+            <label htmlFor="guild-select" className="text-slate-300 text-sm font-medium">Guild</label>
+            <select
+              id="guild-select"
+              value={selectedGuildId}
+              onChange={(e) => setSelectedGuildId(e.target.value)}
+              className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px]"
+            >
+              <option value="">Select a server</option>
+              {guilds.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         {selectedGuildId && (
           <div className="flex gap-2 flex-wrap">
             <button

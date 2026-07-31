@@ -3,7 +3,7 @@
 from fastmcp import FastMCP
 from fastmcp.tools import ToolResult
 from prefab_ui import PrefabApp
-from prefab_ui.components import Card, CardContent, CardHeader, CardTitle, Heading, Row, Text
+from prefab_ui.components import Heading, Row
 
 from ..portmanteau import discord_tool
 

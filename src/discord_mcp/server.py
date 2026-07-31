@@ -7,7 +7,6 @@ import asyncio
 import logging
 import os
 import sys
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -15,16 +14,24 @@ from typing import Annotated
 _STARTED = datetime.now(UTC)
 _SHUTTING_DOWN = False
 
+
 def _resolve_git_sha() -> str:
     try:
         import subprocess
+
         repo = Path(__file__).resolve().parents[2]
-        return subprocess.run(  # noqa: S603
-            ["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],  # noqa: S607
-            capture_output=True, text=True, timeout=2,
-        ).stdout.strip() or "unknown"
+        return (
+            subprocess.run(
+                ["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            ).stdout.strip()
+            or "unknown"
+        )
     except Exception:
         return "unknown"
+
 
 GIT_SHA = _resolve_git_sha()
 
@@ -72,28 +79,35 @@ def _load_dotenv_file() -> None:
 
 _load_dotenv_file()
 
-import uvicorn  # noqa: E402
-from fastapi import Body, FastAPI, HTTPException  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastmcp import FastMCP  # noqa: E402
-from fastmcp.server import create_proxy  # noqa: E402
-from fastmcp.server.providers.skills import SkillsDirectoryProvider  # noqa: E402
-from pydantic import BaseModel  # noqa: E402
-from pydantic import Field as PydanticField  # noqa: E402
+import uvicorn
+from fastapi import Body, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastmcp import FastMCP
+from fastmcp.server import create_proxy
+from fastmcp.server.providers.skills import SkillsDirectoryProvider
+from pydantic import BaseModel
+from pydantic import Field as PydanticField
 
-from .activity_log import ActivityLog, create_log_router  # noqa: E402
-from .agentic import _runs, discord_agentic_workflow, execute_run_loop  # noqa: E402
-from .message_watcher import (  # noqa: E402
+from .activity_log import ActivityLog, create_log_router
+from .agentic import _runs, discord_agentic_workflow, execute_run_loop
+from .message_watcher import (
     maybe_autostart_from_env,
     message_watcher_status,
     start_message_watcher,
     stop_message_watcher,
 )
-from .portmanteau import _resolve_discord_token, discord_tool  # noqa: E402
-from .rate_limit import get_rate_limit_config  # noqa: E402
-from .tools.prefab_cards import register_prefab_tools  # noqa: E402
-from .sampling import DiscordSamplingHandler  # noqa: E402
-from .state import _state  # noqa: E402
+from .portmanteau import _resolve_discord_token, discord_tool
+from .rate_limit import get_rate_limit_config
+from .sampling import DiscordSamplingHandler
+from .scheduler import (
+    cancel_scheduled_message,
+    create_scheduled_message,
+    list_scheduled_messages,
+    start_scheduler,
+    stop_scheduler,
+)
+from .state import _state
+from .tools.prefab_cards import register_prefab_tools
 
 _USE_CLIENT_SAMPLING = os.getenv("DISCORD_SAMPLING_USE_CLIENT_LLM", "").lower() in (
     "1",
@@ -441,6 +455,7 @@ app = FastAPI(title="Discord MCP", lifespan=_discord_mcp_http.lifespan)
 async def _discord_startup():
     _state.token_set = bool(_resolve_discord_token())
     await maybe_autostart_from_env()
+    start_scheduler()
     logger.info("Discord MCP REST + MCP mount starting")
 
 
@@ -449,13 +464,16 @@ async def _discord_shutdown():
     global _SHUTTING_DOWN
     _SHUTTING_DOWN = True
     stop_message_watcher()
+    stop_scheduler()
     logger.info("Discord MCP shutting down")
+
+
 app.add_middleware(
     CORSMiddleware,
-        allow_origins=[
-            "http://127.0.0.1:10756",
-            "http://localhost:10756",
-            "http://goliath:10756",
+    allow_origins=[
+        "http://127.0.0.1:10756",
+        "http://localhost:10756",
+        "http://goliath:10756",
         "http://tauri.localhost",
         "https://tauri.localhost",
         "tauri://localhost",
@@ -470,12 +488,14 @@ app.add_middleware(
 @app.middleware("http")
 async def add_process_time_header(request, call_next):
     import time
+
     start_time = time.time()
     response = await call_next(request)
     process_time = (time.time() - start_time) * 1000.0  # in ms
     if request.url.path.startswith("/api/v1"):
         try:
             from .analytics import tracker
+
             tracker.record_call(process_time)
             if response.status_code >= 400:
                 tracker.record_error()
@@ -574,12 +594,14 @@ async def api_save_settings(body: SaveSettingsBody):
 @app.get("/api/v1/rules")
 async def api_get_rules():
     from .rules import _load_rules
+
     return _load_rules()
 
 
 @app.post("/api/v1/rules")
 async def api_save_rules(body: SaveAutomationRulesBody):
     from .rules import _save_rules
+
     rules_dict = [r.dict() for r in body.rules]
     success = _save_rules(rules_dict)
     return {"success": success}
@@ -588,6 +610,7 @@ async def api_save_rules(body: SaveAutomationRulesBody):
 @app.get("/api/v1/stats/analytics")
 async def api_get_analytics():
     from .analytics import tracker
+
     return tracker.get_stats()
 
 
@@ -605,12 +628,14 @@ class SaveSlackBridgeBody(BaseModel):
 @app.get("/api/v1/slack-bridge")
 async def api_get_slack_bridge():
     from .slack_bridge import _load_mappings
+
     return _load_mappings()
 
 
 @app.post("/api/v1/slack-bridge")
 async def api_save_slack_bridge(body: SaveSlackBridgeBody):
     from .slack_bridge import _save_mappings
+
     maps = [m.dict() for m in body.mappings]
     success = _save_mappings(maps)
     return {"success": success}
@@ -619,6 +644,7 @@ async def api_save_slack_bridge(body: SaveSlackBridgeBody):
 @app.get("/api/v1/intents")
 async def api_intents():
     import httpx
+
     token = _resolve_discord_token()
     if not token:
         return {
@@ -626,10 +652,7 @@ async def api_intents():
             "error": "No bot token configured.",
             "client_id": None,
             "username": None,
-            "intents": {
-                "guild_members": False,
-                "message_content": False
-            }
+            "intents": {"guild_members": False, "message_content": False},
         }
 
     headers = {"Authorization": f"Bot {token}"}
@@ -642,10 +665,7 @@ async def api_intents():
                     "error": f"Invalid bot token (Discord API returned {r.status_code}).",
                     "client_id": None,
                     "username": None,
-                    "intents": {
-                        "guild_members": False,
-                        "message_content": False
-                    }
+                    "intents": {"guild_members": False, "message_content": False},
                 }
             user_data = r.json()
             username = user_data.get("username")
@@ -659,8 +679,7 @@ async def api_intents():
             if guilds and isinstance(guilds, list):
                 first_guild_id = guilds[0].get("id")
                 m_res = await client.get(
-                    f"https://discord.com/api/v10/guilds/{first_guild_id}/members?limit=1",
-                    headers=headers
+                    f"https://discord.com/api/v10/guilds/{first_guild_id}/members?limit=1", headers=headers
                 )
                 if m_res.status_code == 200:
                     members_intent = True
@@ -675,10 +694,7 @@ async def api_intents():
                 "client_id": client_id,
                 "guilds_count": len(guilds) if isinstance(guilds, list) else 0,
                 "invite_url": f"https://discord.com/oauth2/authorize?client_id={client_id}&permissions=8&scope=bot",
-                "intents": {
-                    "guild_members": members_intent,
-                    "message_content": message_content_intent
-                }
+                "intents": {"guild_members": members_intent, "message_content": message_content_intent},
             }
         except Exception as e:
             return {
@@ -686,10 +702,7 @@ async def api_intents():
                 "error": f"Connection error: {e!s}",
                 "client_id": None,
                 "username": None,
-                "intents": {
-                    "guild_members": False,
-                    "message_content": False
-                }
+                "intents": {"guild_members": False, "message_content": False},
             }
 
 
@@ -697,6 +710,7 @@ async def api_intents():
 @app.get("/api/health")
 async def root_health():
     from . import __version__
+
     uptime = int((datetime.now(UTC) - _STARTED).total_seconds())
     return {
         "status": "ok",
@@ -707,13 +721,14 @@ async def root_health():
         "uptime_seconds": uptime,
         "shutting_down": _SHUTTING_DOWN,
         "transport": "streamable-http",
-        "port": 10756
+        "port": 10756,
     }
 
 
 @app.get("/api/v1/health")
 async def health():
     from . import __version__
+
     uptime = int((datetime.now(UTC) - _STARTED).total_seconds())
     return {
         "status": "ok",
@@ -835,7 +850,7 @@ async def get_skill(skill_name: str):
     try:
         text = skill_path.read_text(encoding="utf-8")
     except OSError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to read skill: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to read skill: {e}") from e
     return {"name": skill_name, "content": text}
 
 
@@ -862,7 +877,14 @@ async def api_create_channel(guild_id: str, body: dict = Body(...)):
     parent_id = body.get("parent_id")
     if not name:
         raise HTTPException(status_code=422, detail="name is required")
-    out = await discord_tool(ctx=None, operation="create_channel", guild_id=guild_id, name=name, channel_type=channel_type, parent_id=parent_id)
+    out = await discord_tool(
+        ctx=None,
+        operation="create_channel",
+        guild_id=guild_id,
+        name=name,
+        channel_type=channel_type,
+        parent_id=parent_id,
+    )
     if not out.get("success"):
         status = 429 if out.get("rate_limited") else 502
         raise HTTPException(status_code=status, detail=out.get("error", "Create failed"))
@@ -874,6 +896,46 @@ async def api_delete_channel(channel_id: str):
     out = await discord_tool(ctx=None, operation="delete_channel", channel_id=channel_id)
     if not out.get("success"):
         raise HTTPException(status_code=502, detail=out.get("error", "Delete failed"))
+    return out
+
+
+@app.get("/api/v1/channels/{channel_id}")
+async def api_get_channel(channel_id: str):
+    out = await discord_tool(ctx=None, operation="get_channel", channel_id=channel_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Channel unavailable"))
+    return out
+
+
+@app.patch("/api/v1/channels/{channel_id}")
+async def api_update_channel(channel_id: str, body: dict = Body(...)):
+    out = await discord_tool(
+        ctx=None,
+        operation="update_channel",
+        channel_id=channel_id,
+        name=body.get("name"),
+        topic=body.get("topic"),
+        parent_id=body.get("parent_id"),
+        position=body.get("position"),
+        nsfw=body.get("nsfw"),
+        slowmode=body.get("slowmode"),
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Update failed"))
+    return out
+
+
+@app.patch("/api/v1/guilds/{guild_id}")
+async def api_update_guild(guild_id: str, body: dict = Body(...)):
+    out = await discord_tool(
+        ctx=None,
+        operation="update_guild",
+        guild_id=guild_id,
+        name=body.get("name"),
+        description=body.get("description"),
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Update failed"))
     return out
 
 
@@ -897,7 +959,9 @@ async def api_invites(guild_id: str):
 async def api_create_invite(channel_id: str, body: dict = Body(...)):
     max_age = body.get("max_age", 86400)
     max_uses = body.get("max_uses", 0)
-    out = await discord_tool(ctx=None, operation="create_invite", channel_id=channel_id, max_age=max_age, max_uses=max_uses)
+    out = await discord_tool(
+        ctx=None, operation="create_invite", channel_id=channel_id, max_age=max_age, max_uses=max_uses
+    )
     if not out.get("success"):
         status = 429 if out.get("rate_limited") else 502
         raise HTTPException(status_code=status, detail=out.get("error", "Create invite failed"))
@@ -995,11 +1059,9 @@ _background_tasks = set()
 async def api_agentic(body: AgenticBody = Body(...)):
     """Natural-language agentic runner. Spawns loop and returns run ID."""
     import uuid
+
     run_id = f"run_{uuid.uuid4().hex[:8]}"
-    sys_prompt = (
-        _MCP_INSTRUCTIONS
-        + "\n\nYou are working step-by-step to fulfill the goal. Call appropriate tools."
-    )
+    sys_prompt = _MCP_INSTRUCTIONS + "\n\nYou are working step-by-step to fulfill the goal. Call appropriate tools."
     _runs[run_id] = {
         "id": run_id,
         "goal": body.goal,
@@ -1009,7 +1071,7 @@ async def api_agentic(body: AgenticBody = Body(...)):
         "pending_tool_call": None,
         "error": None,
         "message": None,
-        "system_prompt": sys_prompt
+        "system_prompt": sys_prompt,
     }
     task = asyncio.create_task(execute_run_loop(run_id))
     _background_tasks.add(task)
@@ -1134,6 +1196,43 @@ async def api_delete_message(channel_id: str, message_id: str):
     out = await discord_tool(ctx=None, operation="delete_message", channel_id=channel_id, message_id=message_id)
     if not out.get("success"):
         raise HTTPException(status_code=502, detail=out.get("error", "Delete failed"))
+    return out
+
+
+@app.get("/api/v1/channels/{channel_id}/pins")
+async def api_get_pinned_messages(channel_id: str):
+    out = await discord_tool(ctx=None, operation="get_pinned_messages", channel_id=channel_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Pins unavailable"))
+    return out
+
+
+@app.put("/api/v1/channels/{channel_id}/pins/{message_id}")
+async def api_pin_message(channel_id: str, message_id: str):
+    out = await discord_tool(ctx=None, operation="pin_message", channel_id=channel_id, message_id=message_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Pin failed"))
+    return out
+
+
+@app.delete("/api/v1/channels/{channel_id}/pins/{message_id}")
+async def api_unpin_message(channel_id: str, message_id: str):
+    out = await discord_tool(ctx=None, operation="unpin_message", channel_id=channel_id, message_id=message_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Unpin failed"))
+    return out
+
+
+@app.post("/api/v1/channels/{channel_id}/threads")
+async def api_create_thread(channel_id: str, body: dict = Body(...)):
+    name = body.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="name is required")
+    out = await discord_tool(
+        ctx=None, operation="create_thread", channel_id=channel_id, name=name, message_id=body.get("message_id")
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Thread create failed"))
     return out
 
 
@@ -1394,6 +1493,7 @@ async def api_rag_sync(body: RagSyncBody = Body(...)):
         raise HTTPException(status_code=502, detail=out.get("error", "Failed to fetch messages"))
 
     from .rag import ingest_messages
+
     msgs = out.get("messages") or []
     loop = asyncio.get_event_loop()
     ingest_res = await loop.run_in_executor(
@@ -1414,6 +1514,7 @@ async def api_rag_sync(body: RagSyncBody = Body(...)):
 async def api_rag_stats():
     try:
         from .rag import _get_db
+
         db = _get_db()
         tables = db.table_names()
         stats = []
@@ -1459,6 +1560,42 @@ async def api_comms_watcher_status():
 
 
 app.mount("/mcp", _discord_mcp_http)
+
+
+# --- Message Scheduler REST ---
+
+
+class ScheduleMessageBody(BaseModel):
+    guild_id: str
+    channel_id: str
+    content: str
+    scheduled_at: str  # ISO 8601
+
+
+@app.get("/api/v1/scheduled-messages")
+async def api_list_scheduled(status: str | None = None, limit: int = 50):
+    return list_scheduled_messages(status=status, limit=limit)
+
+
+@app.post("/api/v1/scheduled-messages")
+async def api_create_scheduled(body: ScheduleMessageBody):
+    out = create_scheduled_message(
+        guild_id=body.guild_id,
+        channel_id=body.channel_id,
+        content=body.content,
+        scheduled_at=body.scheduled_at,
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=422, detail=out.get("error", "Create failed"))
+    return out
+
+
+@app.delete("/api/v1/scheduled-messages/{msg_id}")
+async def api_cancel_scheduled(msg_id: int):
+    out = cancel_scheduled_message(msg_id)
+    if not out.get("success"):
+        raise HTTPException(status_code=404, detail=out.get("error", "Not found"))
+    return out
 
 
 def main() -> None:

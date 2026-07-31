@@ -2,27 +2,23 @@ import { AlertCircle, Download, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   api,
-  type Guild,
-  type GuildsResponse,
   type Member,
   type MembersResponse,
 } from "../lib/api";
 import { exportCSV, exportJSON } from "../lib/export";
+import { useGuildPicker } from "../lib/useGuildPicker";
 
 export default function Members() {
-  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const {
+    guilds,
+    guildId: selectedGuildId,
+    setGuildId: setSelectedGuildId,
+    showPicker,
+  } = useGuildPicker();
   const [members, setMembers] = useState<Member[]>([]);
-  const [selectedGuildId, setSelectedGuildId] = useState<string>("");
   const [limit, setLimit] = useState(100);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .getGuilds()
-      .then((r: GuildsResponse) => setGuilds(r.guilds ?? []))
-      .catch((e) => setErr(e.message));
-  }, []);
 
   useEffect(() => {
     if (!selectedGuildId) {
@@ -77,19 +73,23 @@ export default function Members() {
       )}
 
       <div className="flex flex-wrap items-center gap-4">
-        <label className="text-slate-300 text-sm font-medium">Guild</label>
-        <select
-          value={selectedGuildId}
-          onChange={(e) => setSelectedGuildId(e.target.value)}
-          className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px]"
-        >
-          <option value="">Select a server</option>
-          {guilds.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
+        {showPicker && (
+          <>
+            <label className="text-slate-300 text-sm font-medium">Server</label>
+            <select
+              value={selectedGuildId}
+              onChange={(e) => setSelectedGuildId(e.target.value)}
+              className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px]"
+            >
+              <option value="">Select a server</option>
+              {guilds.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         <label className="text-slate-300 text-sm font-medium">Limit</label>
         <select
           value={limit}
@@ -132,9 +132,6 @@ export default function Members() {
                   Username
                 </th>
                 <th className="p-4 text-sm font-bold text-slate-300">Nick</th>
-                <th className="p-4 text-sm font-bold text-slate-300">
-                  User ID
-                </th>
                 <th className="p-4 text-sm font-bold text-slate-300">Joined</th>
                 <th className="p-4 text-sm font-bold text-slate-300">Roles</th>
               </tr>
@@ -149,9 +146,6 @@ export default function Members() {
                     {m.username ?? "—"}
                   </td>
                   <td className="p-4 text-slate-400">{m.nick ?? "—"}</td>
-                  <td className="p-4 font-mono text-sm text-slate-400">
-                    {m.user_id}
-                  </td>
                   <td className="p-4 text-slate-400 text-sm">
                     {m.joined_at
                       ? new Date(m.joined_at).toLocaleDateString()

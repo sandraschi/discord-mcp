@@ -32,16 +32,29 @@ def _prune_old(timestamps: list[float], window: float = WINDOW_SECONDS) -> None:
         timestamps.pop(0)
 
 
-async def check_send_message(channel_id: str, content: str) -> tuple[bool, str | None]:
-    """Return (True, None) if allowed, else (False, error_message)."""
-    cfg = get_rate_limit_config()
-    max_len = min(cfg["max_message_length"], 2000)
+def check_message_length(content: str) -> tuple[bool, str | None]:
+    """Discord caps message content at 2000 chars.
+
+    Return (True, None) if within the limit, else (False, error_message). Content is
+    never silently truncated - callers must reject over-limit content explicitly.
+    """
+    max_len = min(get_rate_limit_config()["max_message_length"], 2000)
     if len(content) > max_len:
         return (
             False,
-            f"Message length {len(content)} exceeds limit {max_len}. "
-            "Set DISCORD_MAX_MESSAGE_LENGTH to override (max 2000).",
+            f"Message length {len(content)} exceeds Discord's {max_len}-char limit. "
+            "Split it into multiple messages (<= 2000 chars each) - content is never truncated. "
+            "Set DISCORD_MAX_MESSAGE_LENGTH to lower the cap (max 2000).",
         )
+    return True, None
+
+
+async def check_send_message(channel_id: str, content: str) -> tuple[bool, str | None]:
+    """Return (True, None) if allowed, else (False, error_message)."""
+    ok, err = check_message_length(content)
+    if not ok:
+        return False, err
+    cfg = get_rate_limit_config()
     async with _state.rate_limit_lock:
         now = time.monotonic()
         msg_ts: list[float] = _state.message_timestamps

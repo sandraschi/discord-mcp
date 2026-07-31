@@ -1,14 +1,29 @@
 import { AlertCircle, CheckCircle, Cpu, Send } from "lucide-react";
-import { useState } from "react";
-import { api } from "../lib/api";
+import { useEffect, useState } from "react";
+import { api, type Channel } from "../lib/api";
+import { useGuildPicker } from "../lib/useGuildPicker";
 
 export default function SendMessage() {
+  const { guilds, guildId, setGuildId, showPicker } = useGuildPicker();
+  const [channels, setChannels] = useState<Channel[]>([]);
   const [channelId, setChannelId] = useState("");
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!guildId) return;
+    api
+      .getChannels(guildId)
+      .then((r) =>
+        setChannels((r.channels ?? []).filter((c) => c.type === 0 || c.type === 5)),
+      )
+      .catch(() => {});
+  }, [guildId]);
+
+  const channelName = channels.find((c) => c.id === channelId)?.name ?? channelId;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,7 +34,7 @@ export default function SendMessage() {
     api
       .sendMessage(channelId.trim(), content.trim())
       .then(() => {
-        setSuccess(`Message sent to channel ${channelId}.`);
+        setSuccess(`Message sent to #${channelName}.`);
         setContent("");
       })
       .catch((e) => setErr(e.message))
@@ -31,7 +46,7 @@ export default function SendMessage() {
     setDrafting(true);
     setErr(null);
     api
-      .agentic(`Compose a short friendly message to send to channel ${channelId.trim()}`)
+      .agentic(`Compose a short friendly message to send to channel #${channelName}`)
       .then((r) => {
         if (r.message) setContent(r.message);
       })
@@ -48,7 +63,7 @@ export default function SendMessage() {
             Send message
           </h1>
           <p className="text-slate-400 text-sm">
-            Post to a channel (rate limited)
+            Send a message to any channel (2000 char limit, rate-limited)
           </p>
         </div>
       </div>
@@ -69,18 +84,39 @@ export default function SendMessage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="channel-id" className="block text-slate-300 text-sm font-medium mb-2">
-            Channel ID
+            Channel
           </label>
           <div className="flex gap-2">
-            <input
-              id="channel-id"
-              type="text"
-              value={channelId}
-              onChange={(e) => setChannelId(e.target.value)}
-              placeholder="e.g. 123456789012345678"
-              className="flex-1 rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-3 text-slate-200 font-mono"
-              required
-            />
+            <div className="flex-1 flex flex-wrap gap-2">
+              {showPicker && (
+                <select
+                  value={guildId}
+                  onChange={(e) => setGuildId(e.target.value)}
+                  className="flex-1 min-w-[160px] rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-3 text-slate-200"
+                >
+                  <option value="">Select server…</option>
+                  {guilds.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <select
+                id="channel-id"
+                value={channelId}
+                onChange={(e) => setChannelId(e.target.value)}
+                className="flex-1 min-w-[180px] rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-3 text-slate-200"
+                required
+              >
+                <option value="">Select channel…</option>
+                {channels.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    #{c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
               type="button"
               onClick={handleAiDraft}

@@ -225,6 +225,20 @@ def _degraded_text(last_user: str, has_tools: bool) -> str:
     return f"[Discord-MCP sampling — HTTP LLM unreachable]\n\n{tool_note}\n\nGoal context: {last_user[:2000]!s}"
 
 
+# Installed-model preference order for Ollama auto-resolution. Local models only —
+# ":cloud" tags require an Ollama Cloud subscription and are deliberately excluded.
+_PREFERRED_MODELS = [
+    "llama3.2:3b",
+    "llama3.2",
+    "deepseek-v4-flash",
+    "qwen3",
+    "qwen2.5",
+    "gemma4",
+    "llama3.1:8b",
+    "llama3.1",
+]
+
+
 class DiscordSamplingHandler:
     """OpenAI-compatible chat/completions (default: local Ollama)."""
 
@@ -236,6 +250,32 @@ class DiscordSamplingHandler:
 
     def default_model(self) -> str:
         return os.getenv("DISCORD_SAMPLING_MODEL", "llama3.2")
+
+    async def resolve_default_model(self) -> str:
+        """Pick an actually-installed model instead of 404ing on a stale default.
+
+        Ollama rejects untagged names (e.g. "llama3.2" when only "llama3.2:3b"
+        is pulled) with 404 "model not found". When DISCORD_SAMPLING_MODEL is
+        unset, probe Ollama's native /api/tags and pick the best installed
+        model. Non-Ollama endpoints fall back to the default name.
+        """
+        configured = os.getenv("DISCORD_SAMPLING_MODEL", "").strip()
+        if configured:
+            return configured
+        tags_url = self.base_url().removesuffix("/v1") + "/api/tags"
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                r = await client.get(tags_url)
+                if r.status_code == 200:
+                    names = [m.get("name", "") for m in r.json().get("models", [])]
+                    if names:
+                        for preferred in _PREFERRED_MODELS:
+                            if preferred in names:
+                                return preferred
+                        return sorted(names)[0]
+        except Exception as e:  # non-Ollama endpoint or offline — keep default
+            self.logger.debug("Ollama model resolution failed for %s: %s", tags_url, e)
+        return self.default_model()
 
     def status(self) -> dict[str, Any]:
         key = _resolve_api_key()
@@ -257,7 +297,7 @@ class DiscordSamplingHandler:
         _ = request_context
         api_key = _resolve_api_key()
         base_url = self.base_url()
-        default_model = self.default_model()
+        default_model = await self.resolve_default_model()
         model = _hint_model(params, default_model)
         max_tokens = params.maxTokens
         temperature = params.temperature

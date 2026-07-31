@@ -4,28 +4,19 @@ import {
   api,
   type Channel,
   type ChannelsResponse,
-  type Guild,
-  type GuildsResponse,
   type Webhook as WebhookEntry,
 } from "../lib/api";
+import { useGuildPicker } from "../lib/useGuildPicker";
 
 export default function WebhooksPage() {
-  const [guilds, setGuilds] = useState<Guild[]>([]);
+  const { guilds, guildId, setGuildId, showPicker } = useGuildPicker();
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [guildId, setGuildId] = useState("");
   const [channelId, setChannelId] = useState("");
   const [webhooks, setWebhooks] = useState<WebhookEntry[]>([]);
   const [webhookName, setWebhookName] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .getGuilds()
-      .then((r: GuildsResponse) => setGuilds(r.guilds ?? []))
-      .catch((e) => setErr(e.message));
-  }, []);
 
   useEffect(() => {
     if (!guildId) {
@@ -82,7 +73,7 @@ export default function WebhooksPage() {
         <Webhook className="text-cyan-400 w-8 h-8" />
         <div>
           <h1 className="text-2xl font-bold text-white">Webhooks</h1>
-          <p className="text-slate-400 text-sm">List, create, and delete channel webhooks</p>
+          <p className="text-slate-400 text-sm">URLs any app can POST to — Discord turns the request into a channel message. Manage them here.</p>
         </div>
       </div>
 
@@ -95,18 +86,20 @@ export default function WebhooksPage() {
       {msg && <p className="text-emerald-300 text-sm">{msg}</p>}
 
       <div className="flex flex-wrap gap-4">
-        <select
-          value={guildId}
-          onChange={(e) => setGuildId(e.target.value)}
-          className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200"
-        >
-          <option value="">Select server</option>
-          {guilds.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
+        {showPicker && (
+          <select
+            value={guildId}
+            onChange={(e) => setGuildId(e.target.value)}
+            className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200"
+          >
+            <option value="">Select server</option>
+            {guilds.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        )}
         <select
           value={channelId}
           onChange={(e) => setChannelId(e.target.value)}
@@ -145,7 +138,6 @@ export default function WebhooksPage() {
             <thead>
               <tr className="border-b border-white/10">
                 <th className="p-4 text-sm text-slate-300">Name</th>
-                <th className="p-4 text-sm text-slate-300">ID</th>
                 <th className="p-4 text-sm text-slate-300">Action</th>
               </tr>
             </thead>
@@ -153,7 +145,6 @@ export default function WebhooksPage() {
               {webhooks.map((w) => (
                 <tr key={w.id} className="border-b border-white/5">
                   <td className="p-4 text-slate-200">{w.name ?? "—"}</td>
-                  <td className="p-4 font-mono text-sm text-slate-400">{w.id}</td>
                   <td className="p-4">
                     <button
                       type="button"

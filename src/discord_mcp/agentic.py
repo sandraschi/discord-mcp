@@ -426,3 +426,419 @@ async def discord_agentic_workflow(
                 "Call discord(operation='list_guilds') without agentic to isolate API issues.",
             ],
         }
+
+
+_runs: dict[str, dict] = {}
+
+
+def _get_tools_schema() -> list[dict]:
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "list_guilds",
+                "description": "List bot guilds.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "list_channels",
+                "description": "List channels in a guild.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"guild_id": {"type": "string", "description": "Guild ID"}},
+                    "required": ["guild_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "send_message",
+                "description": "Send a message to a channel.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {"type": "string", "description": "Channel ID"},
+                        "content": {"type": "string", "description": "Message content"},
+                    },
+                    "required": ["channel_id", "content"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_messages",
+                "description": "Get recent messages.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {"type": "string", "description": "Channel ID"},
+                        "limit": {"type": "integer", "description": "Max count of messages", "default": 20},
+                    },
+                    "required": ["channel_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_guild_stats",
+                "description": "Get presence and member stats for a guild.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"guild_id": {"type": "string", "description": "Guild ID"}},
+                    "required": ["guild_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_channel",
+                "description": "Create text(0), voice(2), or category(4) channel.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "guild_id": {"type": "string", "description": "Guild ID"},
+                        "name": {"type": "string", "description": "Channel name"},
+                        "channel_type": {"type": "integer", "description": "0=text, 2=voice, 4=category", "default": 0},
+                        "parent_id": {"type": "string", "description": "Category ID", "nullable": True},
+                    },
+                    "required": ["guild_id", "name"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "create_invite",
+                "description": "Create an invite code.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {"type": "string", "description": "Channel ID"},
+                        "max_age": {"type": "integer", "description": "Seconds till expiry", "default": 86400},
+                        "max_uses": {"type": "integer", "description": "Max uses (0=unlimited)", "default": 0},
+                    },
+                    "required": ["channel_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "list_invites",
+                "description": "List guild invites.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"guild_id": {"type": "string", "description": "Guild ID"}},
+                    "required": ["guild_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "revoke_invite",
+                "description": "Revoke an invite code.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"invite_code": {"type": "string", "description": "Invite code"}},
+                    "required": ["invite_code"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "list_members",
+                "description": "List guild members.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "guild_id": {"type": "string", "description": "Guild ID"},
+                        "limit": {"type": "integer", "description": "Max members", "default": 100},
+                    },
+                    "required": ["guild_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_member",
+                "description": "Get member detail.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "guild_id": {"type": "string", "description": "Guild ID"},
+                        "user_id": {"type": "string", "description": "User ID"},
+                    },
+                    "required": ["guild_id", "user_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "ban_member",
+                "description": "Ban member from guild.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "guild_id": {"type": "string", "description": "Guild ID"},
+                        "user_id": {"type": "string", "description": "User ID"},
+                        "delete_message_seconds": {
+                            "type": "integer",
+                            "description": "History clear range",
+                            "default": 0,
+                        },
+                        "reason": {"type": "string", "description": "Reason for ban"},
+                    },
+                    "required": ["guild_id", "user_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "unban_member",
+                "description": "Remove a guild ban.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "guild_id": {"type": "string", "description": "Guild ID"},
+                        "user_id": {"type": "string", "description": "User ID"},
+                    },
+                    "required": ["guild_id", "user_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "kick_member",
+                "description": "Kick member from guild.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "guild_id": {"type": "string", "description": "Guild ID"},
+                        "user_id": {"type": "string", "description": "User ID"},
+                        "reason": {"type": "string", "description": "Reason for kick"},
+                    },
+                    "required": ["guild_id", "user_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "list_roles",
+                "description": "List guild roles.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"guild_id": {"type": "string", "description": "Guild ID"}},
+                    "required": ["guild_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "assign_role",
+                "description": "Add role to a member.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "guild_id": {"type": "string", "description": "Guild ID"},
+                        "user_id": {"type": "string", "description": "User ID"},
+                        "role_id": {"type": "string", "description": "Role ID"},
+                    },
+                    "required": ["guild_id", "user_id", "role_id"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "remove_role",
+                "description": "Remove role from a member.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "guild_id": {"type": "string", "description": "Guild ID"},
+                        "user_id": {"type": "string", "description": "User ID"},
+                        "role_id": {"type": "string", "description": "Role ID"},
+                    },
+                    "required": ["guild_id", "user_id", "role_id"],
+                },
+            },
+        },
+    ]
+
+
+async def execute_run_loop(run_id: str):
+    import asyncio
+    import json
+    import os
+
+    import httpx
+
+    from .portmanteau import _resolve_discord_token
+    from .sampling import DiscordSamplingHandler
+
+    run = _runs[run_id]
+    goal = run["goal"]
+    messages = [{"role": "system", "content": run["system_prompt"]}, {"role": "user", "content": goal}]
+
+    handler = DiscordSamplingHandler()
+    base_url = handler.base_url()
+    model = await handler.resolve_default_model()
+
+    status = handler.status()
+    if not status["server_side_llm_ready"]:
+        run["status"] = "failed"
+        run["error"] = "Local Ollama LLM is offline. Start Ollama and run `ollama pull llama3.2`."
+        return
+
+    client = httpx.AsyncClient(timeout=120.0)
+
+    destructive_ops = {
+        "ban_member",
+        "unban_member",
+        "kick_member",
+        "timeout_member",
+        "delete_role",
+        "delete_message",
+        "delete_webhook",
+        "delete_emoji",
+        "revoke_invite",
+    }
+
+    # Map of tool names to local functions
+    tool_map = {
+        "list_guilds": _list_guilds,
+        "list_channels": _list_channels,
+        "send_message": _send_message,
+        "get_messages": _get_messages,
+        "get_guild_stats": _get_guild_stats,
+        "create_channel": _create_channel,
+        "create_invite": _create_invite,
+        "list_invites": _list_invites,
+        "revoke_invite": _revoke_invite,
+        "list_members": _list_members,
+        "get_member": _get_member,
+        "ban_member": _ban_member,
+        "unban_member": _unban_member,
+        "kick_member": _kick_member,
+        "list_roles": _list_roles,
+        "assign_role": _assign_role,
+        "remove_role": _remove_role,
+    }
+
+    max_steps = 10
+    step = 0
+
+    while step < max_steps and run["status"] not in ("succeeded", "failed"):
+        run["current_step"] = len(run["steps"]) + 1
+
+        payload = {"model": model, "messages": messages, "tools": _get_tools_schema(), "tool_choice": "auto"}
+
+        headers = {"Content-Type": "application/json"}
+        _resolve_discord_token()
+        key = os.getenv("DISCORD_SAMPLING_API_KEY", "").strip() or os.getenv("OPENAI_API_KEY", "").strip()
+        if key:
+            headers["Authorization"] = f"Bearer {key}"
+
+        try:
+            r = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
+            r.raise_for_status()
+            res_data = r.json()
+        except Exception as e:
+            run["status"] = "failed"
+            detail = ""
+            if isinstance(e, httpx.HTTPStatusError) and e.response is not None:
+                detail = f" ({e.response.status_code}: {e.response.text[:200]})"
+            run["error"] = f"LLM completion failed: {e}{detail}"
+            break
+
+        choice = (res_data.get("choices") or [{}])[0]
+        msg = choice.get("message") or {}
+        tool_calls = msg.get("tool_calls") or []
+        content = msg.get("content") or ""
+
+        if not tool_calls:
+            run["status"] = "succeeded"
+            run["message"] = content
+            run["steps"].append({"type": "thought", "text": content, "status": "success"})
+            break
+
+        if content:
+            run["steps"].append({"type": "thought", "text": content, "status": "success"})
+
+        for tc in tool_calls:
+            fn = tc.get("function") or {}
+            name = fn.get("name")
+            raw_args = fn.get("arguments") or "{}"
+            tc_id = tc.get("id")
+
+            try:
+                args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+            except Exception:
+                args = {"raw": raw_args}
+
+            is_destructive = name in destructive_ops
+
+            step_record = {
+                "id": tc_id,
+                "type": "tool_call",
+                "name": name,
+                "arguments": args,
+                "is_destructive": is_destructive,
+                "status": "pending",
+            }
+            run["steps"].append(step_record)
+
+            if is_destructive:
+                run["status"] = "blocked"
+                run["pending_tool_call"] = step_record
+
+                # Wait for user approval
+                while run["status"] == "blocked":
+                    await asyncio.sleep(0.5)
+
+                if run["status"] == "failed":
+                    break
+
+            if run["status"] == "running":
+                step_record["status"] = "running"
+                try:
+                    tool_func = tool_map.get(name)
+                    if not tool_func:
+                        raise ValueError(f"Tool {name} not found")
+
+                    res_val = await tool_func(**args)
+                    step_record["status"] = "success"
+                    step_record["result"] = res_val
+
+                    messages.append({"role": "assistant", "content": None, "tool_calls": [tc]})
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc_id,
+                            "content": json.dumps(res_val) if not isinstance(res_val, str) else res_val,
+                        }
+                    )
+                except Exception as e:
+                    step_record["status"] = "error"
+                    step_record["result"] = str(e)
+                    messages.append({"role": "assistant", "content": None, "tool_calls": [tc]})
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "content": f"Error executing tool: {e!s}"})
+
+        step += 1
+
+    await client.close()

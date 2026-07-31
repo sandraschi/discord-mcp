@@ -42,7 +42,7 @@ export default function Favorites() {
             Favorites
           </h1>
           <p className="text-slate-400 text-sm">
-            Quick access and trawl targets (e.g. LM Studio, release channels)
+            Pin the servers and channels you use often — also the targets for Trawl
           </p>
         </div>
       </div>
@@ -82,9 +82,6 @@ export default function Favorites() {
                 >
                   {g.name}
                 </button>
-                <span className="text-slate-500 font-mono text-xs mr-4">
-                  {g.id}
-                </span>
                 <button
                   type="button"
                   onClick={() => handleRemoveGuild(g.id)}
@@ -124,9 +121,6 @@ export default function Favorites() {
                     {c.guildName}
                   </p>
                 </div>
-                <span className="text-slate-500 font-mono text-xs mr-4 shrink-0">
-                  {c.id}
-                </span>
                 <button
                   type="button"
                   onClick={() => handleRemoveChannel(c.id)}

@@ -98,6 +98,7 @@ export interface Channel {
   id: string;
   name: string;
   type: number;
+  parent_id?: string;
 }
 
 export interface ChannelsResponse {
@@ -321,8 +322,11 @@ export interface WebhooksResponse {
 export interface AuditEntry {
   id?: string;
   action_type?: number;
+  action_label?: string;
   user_id?: string;
+  user_name?: string;
   target_id?: string;
+  target_name?: string;
   reason?: string;
   created_at?: string;
 }
