@@ -1,13 +1,13 @@
 set windows-shell := ["powershell.exe", "-NoProfile", "-Command"]
 import 'scripts/just/fleet.just'
 
-# ── Dashboard ─────────────────────────────────────────────────────────────────
+# --- Dashboard ---
 
 # Open the interactive recipe dashboard in the browser
 default:
     @just --list
 
-# ── Setup ─────────────────────────────────────────────────────────────────────
+# --- Setup ---
 
 # Install all dependencies (Python + webapp)
 bootstrap:
@@ -16,7 +16,7 @@ bootstrap:
     Set-Location '{{justfile_directory()}}\webapp'
     npm install
 
-# ── Serve ─────────────────────────────────────────────────────────────────────
+# --- Serve ---
 
 # Start the full stack (backend + frontend) via start.ps1
 serve:
@@ -30,7 +30,7 @@ web:
     Set-Location '{{justfile_directory()}}\webapp'
     npm run dev
 
-# ── Quality ───────────────────────────────────────────────────────────────────
+# --- Quality ---
 
 # Execute Ruff SOTA v13.1 linting
 lint:
@@ -47,7 +47,7 @@ fix:
     Set-Location '{{justfile_directory()}}\webapp'
     npx @biomejs/biome check --write .
 
-# ── Hardening ─────────────────────────────────────────────────────────────────
+# --- Hardening ---
 
 # Execute Bandit security audit
 check-sec:
@@ -59,7 +59,7 @@ audit-deps:
     Set-Location '{{justfile_directory()}}'
     uv run safety check
 
-# ── Testing ───────────────────────────────────────────────────────────────────
+# --- Testing ---
 
 # Run Python unit tests
 test:
@@ -74,7 +74,7 @@ live-tests:
 e2e:
     powershell.exe -NoProfile -NoProfile -ExecutionPolicy Bypass -File "D:\Dev\repos\mcp-central-docs\scripts\playwright-audit.ps1" -RepoPath "{{justfile_directory()}}"
 
-# ── Native ─────────────────────────────────────────────────────────────────────
+# --- Native ---
 
 build-native:
     $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"

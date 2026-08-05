@@ -1,5 +1,32 @@
-import { Activity, Server } from "lucide-react";
+import { Activity, Moon, Server, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { Health } from "@/lib/api";
+
+// EXPERIMENTAL light mode (invert hack). Not fleet standard — see index.css.
+// Toggling `.dark` off the root flips the invert filter; persisted so the
+// choice survives reloads. Delete this + the CSS block to revert.
+const THEME_KEY = "discord-light-mode";
+
+function useExperimentalTheme() {
+  const [light, setLight] = useState(() => {
+    try {
+      return localStorage.getItem(THEME_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", !light);
+    try {
+      localStorage.setItem(THEME_KEY, light ? "1" : "0");
+    } catch {
+      // ignore storage errors
+    }
+  }, [light]);
+
+  return { light, toggle: () => setLight((v) => !v) };
+}
 
 type Props = {
   title: string;
@@ -10,6 +37,7 @@ type Props = {
 export default function TopBar({ title, subtitle, health }: Props) {
   const tokenOk = health?.token_set === true;
   const samplingOk = health?.sampling?.server_side_llm_ready === true;
+  const { light, toggle } = useExperimentalTheme();
   return (
     <header className="shrink-0 z-30 flex flex-col gap-3 pb-6 border-b border-white/[0.06]">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -22,6 +50,15 @@ export default function TopBar({ title, subtitle, health }: Props) {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={toggle}
+            className="p-2 rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+            title={light ? "Switch to dark (experimental light mode)" : "Switch to light (experimental, ugly)"}
+            aria-label="Toggle light mode (experimental)"
+          >
+            {light ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </button>
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border ${
               tokenOk
