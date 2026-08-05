@@ -1,5 +1,8 @@
 
 ## [Unreleased]
+### Housekeeping (2026-08-05)
+- Commit `5fee45f` (gitignore lib/ anchor fix) also carries the repo's pre-existing uncommitted
+  WIP (cua webapp test scripts, TopBar theme work, index.css, lib helpers) - reviewed and kept.
 
 ### Added
 - **7 new portmanteau operations (36 -> 43):** `get_channel`, `update_channel` (rename/topic/move-to-category/position/nsfw/slowmode), `update_guild`, `pin_message`, `unpin_message`, `get_pinned_messages`, `create_thread` (standalone or from a message). REST mirrors for all of them (`GET|PATCH /api/v1/channels/{id}`, `PATCH /api/v1/guilds/{id}`, `/api/v1/channels/{id}/pins`, `/api/v1/channels/{id}/threads`).
@@ -47,6 +50,9 @@ All notable changes to **discord-mcp** are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Versioning is semantic for releases.
 
 ## [Unreleased]
+### Housekeeping (2026-08-05)
+- Commit `5fee45f` (gitignore lib/ anchor fix) also carries the repo's pre-existing uncommitted
+  WIP (cua webapp test scripts, TopBar theme work, index.css, lib helpers) - reviewed and kept.
 
 ### Changed
 
