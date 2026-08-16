@@ -343,6 +343,17 @@ export interface OkResponse {
   error?: string;
 }
 
+export interface CommsWatcherScheduleWindow {
+  days: string;
+  start: string;
+  end: string;
+}
+
+export interface CommsWatcherSchedule {
+  tz?: string;
+  windows: CommsWatcherScheduleWindow[];
+}
+
 export interface CommsWatcherConfig {
   mode?: string;
   interval?: number;
@@ -350,6 +361,8 @@ export interface CommsWatcherConfig {
   channels?: { channel_id: string; guild_id?: string }[];
   auto_reply?: boolean;
   auto_reply_template?: string;
+  auto_rag?: boolean;
+  schedule?: CommsWatcherSchedule | null;
 }
 
 export interface CommsWatcherStatus {
@@ -366,6 +379,8 @@ export interface CommsWatcherStart {
   channels: { channel_id: string; guild_id?: string }[];
   auto_reply?: boolean;
   auto_reply_template?: string;
+  auto_rag?: boolean;
+  schedule?: CommsWatcherSchedule;
 }
 
 export const api = {

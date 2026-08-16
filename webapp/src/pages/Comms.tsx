@@ -10,6 +10,12 @@ export default function Comms() {
   const [interval, setInterval] = useState(30);
   const [autoReply, setAutoReply] = useState(false);
   const [template, setTemplate] = useState("Thanks {author} — received your message.");
+  const [autoRag, setAutoRag] = useState(false);
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleTz, setScheduleTz] = useState("Europe/Vienna");
+  const [scheduleDays, setScheduleDays] = useState("wd");
+  const [scheduleStart, setScheduleStart] = useState("09:00");
+  const [scheduleEnd, setScheduleEnd] = useState("17:30");
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -45,6 +51,10 @@ export default function Comms() {
         channels: ids.map((channel_id) => ({ channel_id })),
         auto_reply: autoReply,
         auto_reply_template: template,
+        auto_rag: autoRag,
+        schedule: scheduleEnabled
+          ? { tz: scheduleTz, windows: [{ days: scheduleDays, start: scheduleStart, end: scheduleEnd }] }
+          : undefined,
       });
       setStatus(out);
       setMsg(out.message ?? "Watcher started");
@@ -106,6 +116,17 @@ export default function Comms() {
             {status?.running ? "Running" : "Stopped"}
           </span>
         </p>
+        {status?.running && status.config && (
+          <p className="text-xs text-slate-500">
+            mode={status.config.mode}
+            {status.config.auto_rag ? " | auto-rag: on" : ""}
+            {status.config.schedule?.windows?.length
+              ? ` | active: ${status.config.schedule.windows
+                  .map((w) => `${w.days} ${w.start}-${w.end}`)
+                  .join(", ")}`
+              : " | active: always"}
+          </p>
+        )}
 
         <div className="space-y-2">
           <label className="text-slate-300 text-sm">Channel IDs (comma-separated)</label>
@@ -160,6 +181,71 @@ export default function Comms() {
             className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200 text-sm"
           />
         )}
+
+        <label className="flex items-center gap-2 text-slate-300 text-sm">
+          <input type="checkbox" checked={autoRag} onChange={(e) => setAutoRag(e.target.checked)} />
+          Auto-RAG ingest (messages into LanceDB) - default off
+        </label>
+
+        <div className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-3">
+          <label className="flex items-center gap-2 text-slate-300 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={scheduleEnabled}
+              onChange={(e) => setScheduleEnabled(e.target.checked)}
+            />
+            Active-window schedule (only process messages in these hours)
+          </label>
+          {scheduleEnabled && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-slate-400 text-xs block mb-1">Timezone</label>
+                <input
+                  value={scheduleTz}
+                  onChange={(e) => setScheduleTz(e.target.value)}
+                  className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200 text-sm"
+                />
+              </div>
+              <div className="flex flex-wrap gap-4">
+                <div>
+                  <label className="text-slate-400 text-xs block mb-1">Days</label>
+                  <select
+                    value={scheduleDays}
+                    onChange={(e) => setScheduleDays(e.target.value)}
+                    className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200 text-sm"
+                  >
+                    <option value="wd">Weekdays (Mon-Fri)</option>
+                    <option value="we">Weekends</option>
+                    <option value="all">Every day</option>
+                    <option value="0,1,2,3,4">Mon-Fri (explicit)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs block mb-1">Start (HH:MM)</label>
+                  <input
+                    type="time"
+                    value={scheduleStart}
+                    onChange={(e) => setScheduleStart(e.target.value)}
+                    className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs block mb-1">End (HH:MM)</label>
+                  <input
+                    type="time"
+                    value={scheduleEnd}
+                    onChange={(e) => setScheduleEnd(e.target.value)}
+                    className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200 text-sm"
+                  />
+                </div>
+              </div>
+              <p className="text-slate-500 text-xs">
+                Outside the window the watcher stays connected but does not dispatch
+                webhooks, auto-replies, RAG, or rules. End before start = overnight window.
+              </p>
+            </div>
+          )}
+        </div>
 
         <div className="flex gap-3">
           <button

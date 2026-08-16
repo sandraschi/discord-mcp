@@ -1,5 +1,16 @@
 
 ## [Unreleased]
+### Added
+- **Comms watcher: active-window schedule + auto-RAG UI toggle.**
+  - Watcher can be restricted to time windows (`schedule: {tz, windows:[{days, start, end}]}`)
+    - days: `wd` / `we` / `all` / `0,2,4` (Mon=0); end <= start wraps overnight.
+    - Outside windows the gateway stays connected but nothing dispatches
+      (webhook, auto-reply, RAG, rules) - single gate in `_dispatch_inbound`.
+  - Webapp Comms page: auto-RAG checkbox (default off) + schedule editor
+    (tz, days, start/end) + status readout; REST body + status extended.
+  - Env autostart now honors `DISCORD_COMMS_AUTO_RAG`.
+  - Tests: `tests/test_watcher_schedule.py` (6 cases).
+
 ### Housekeeping (2026-08-05)
 - Commit `5fee45f` (gitignore lib/ anchor fix) also carries the repo's pre-existing uncommitted
   WIP (cua webapp test scripts, TopBar theme work, index.css, lib helpers) - reviewed and kept.

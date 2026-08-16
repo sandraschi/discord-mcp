@@ -1045,6 +1045,7 @@ class CommsWatcherStartBody(BaseModel):
     auto_reply: bool = False
     auto_reply_template: str = ""
     auto_rag: bool = False
+    schedule: dict | None = None
 
 
 class ApproveBody(BaseModel):
@@ -1543,6 +1544,7 @@ async def api_comms_watcher_start(body: CommsWatcherStartBody = Body(...)):
         auto_reply=body.auto_reply,
         auto_reply_template=body.auto_reply_template,
         auto_rag=body.auto_rag,
+        schedule=body.schedule,
     )
     if not out.get("running") and out.get("error"):
         raise HTTPException(status_code=400, detail=out["error"])
