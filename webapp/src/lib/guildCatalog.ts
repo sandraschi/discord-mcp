@@ -13,22 +13,31 @@ export interface ServerInfo {
  * Matching is name-based (ids are only known at runtime). Anything not
  * matched falls back to a generic entry.
  */
-const KNOWN: Array<{ match: string[]; description: string; tags: string[]; home?: string; mine?: boolean }> = [
+const KNOWN: Array<{
+  match: string[];
+  description: string;
+  tags: string[];
+  home?: string;
+  mine?: boolean;
+}> = [
   {
     match: ["opencode"],
-    description: "Official OpenCode community — agentic coding tooling, releases and discussion.",
+    description:
+      "Official OpenCode community — agentic coding tooling, releases and discussion.",
     tags: ["dev", "ai"],
     home: "https://opencode.ai",
   },
   {
     match: ["ollama"],
-    description: "Ollama community — local LLM runtime, models and self-hosted inference.",
+    description:
+      "Ollama community — local LLM runtime, models and self-hosted inference.",
     tags: ["llm", "local"],
     home: "https://ollama.com",
   },
   {
     match: ["lm studio", "lmstudio"],
-    description: "LM Studio community — local model playground and OpenAI-compatible server.",
+    description:
+      "LM Studio community — local model playground and OpenAI-compatible server.",
     tags: ["llm", "local"],
     home: "https://lmstudio.ai",
   },
@@ -40,12 +49,13 @@ const KNOWN: Array<{ match: string[]; description: string; tags: string[]; home?
   },
   {
     match: ["discord"],
-    description: "Discord developer community — API, bots and platform updates.",
+    description:
+      "Discord developer community — API, bots and platform updates.",
     tags: ["dev", "discord"],
     home: "https://discord.com/developers",
   },
   {
-    match: ["sas1234", "sandraschi"],
+    match: ["sandra's fleet", "fleet hq", "sandraschi"],
     description: "Your fleet server — full administrative control.",
     tags: ["fleet", "mine"],
     mine: true,
@@ -56,7 +66,12 @@ export function guildInfo(g: Guild): ServerInfo {
   const lower = g.name.toLowerCase();
   for (const k of KNOWN) {
     if (k.match.some((m) => lower.includes(m))) {
-      return { description: k.description, tags: k.tags, home: k.home, mine: k.mine };
+      return {
+        description: k.description,
+        tags: k.tags,
+        home: k.home,
+        mine: k.mine,
+      };
     }
   }
   return { description: "No description available.", tags: [] };
