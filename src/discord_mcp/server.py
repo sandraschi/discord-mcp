@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Discord MCP Server — FastMCP 3.2, sampling, skills, agentic workflow (SEP-1577)."""
+"""Discord MCP Server - FastMCP 3.2, sampling, skills, agentic workflow (SEP-1577)."""
 
 from __future__ import annotations
 
@@ -128,7 +128,7 @@ AGENTIC: `discord_agentic_workflow(goal, ctx)` plans multi-step tasks using samp
 client LLM when configured.
 SAFETY: Server-side rate limits on send_message, channel creation, and invites. Respect Discord ToS
 and server rules.
-SKILLS: Bundled workflows under resource URIs skill://*/SKILL.md — see list_resources.
+SKILLS: Bundled workflows under resource URIs skill://*/SKILL.md - see list_resources.
 PROMPTS: Use registered prompts for setup, moderation, RAG, and invite workflows.
 
 When unsure, call discord_help() or discord(operation='list_guilds') first."""
@@ -228,7 +228,7 @@ _HELP_CATEGORIES = {
     ),
     "create_webhook": (
         "Create a webhook. discord(operation='create_webhook', channel_id='...', "
-        "webhook_name='MyHook'). Returns token — save it! Requires MANAGE_WEBHOOKS."
+        "webhook_name='MyHook'). Returns token - save it! Requires MANAGE_WEBHOOKS."
     ),
     "delete_webhook": (
         "Delete a webhook. discord(operation='delete_webhook', webhook_id='...'). Requires MANAGE_WEBHOOKS."
@@ -332,7 +332,7 @@ async def start_message_watcher_tool(
         bool, PydanticField(description="Enable auto-syncing inbound messages to LanceDB RAG.")
     ] = False,
 ) -> dict:
-    """Start Discord Gateway/poll watcher — inbound messages → webhook + optional auto-reply.
+    """Start Discord Gateway/poll watcher - inbound messages → webhook + optional auto-reply.
 
     Comms lane: fires `new_discord_message` JSON to robofang or fleet-agent.
     Enable MESSAGE CONTENT intent in Discord Developer Portal for gateway mode.

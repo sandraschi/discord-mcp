@@ -1,4 +1,4 @@
-"""Global state for Discord MCP — typed rate-limit tracking and token status."""
+"""Global state for Discord MCP - typed rate-limit tracking and token status."""
 
 from __future__ import annotations
 

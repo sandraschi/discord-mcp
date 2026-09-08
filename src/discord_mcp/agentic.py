@@ -1,6 +1,6 @@
 """Agentic workflow and sampling for Discord (FastMCP 3.2 / SEP-1577).
 
-[DOCSTRING SOTA] — agentic tool uses `Annotated[T, Field(description=...)]`. The docstring
+[DOCSTRING SOTA] - agentic tool uses `Annotated[T, Field(description=...)]`. The docstring
 follows the fleet ## Return Format / ## Examples convention.
 """
 
@@ -257,7 +257,7 @@ async def discord_agentic_workflow(
     goal: Annotated[str, Field(description="Natural-language objective (e.g. list channels then summarize activity).")],
     ctx: Context,
 ) -> dict[str, Any]:
-    """DISCORD_AGENTIC_WORKFLOW — Achieve a high-level Discord goal via planning and sampling (SEP-1577).
+    """DISCORD_AGENTIC_WORKFLOW - Achieve a high-level Discord goal via planning and sampling (SEP-1577).
 
     PORTMANTEAU PATTERN RATIONALE: Single entry for multi-step Discord tasks without exposing
     dozens of atomic tools to the host; the sampler loops over typed tool functions.

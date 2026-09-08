@@ -403,6 +403,7 @@ dev = [
 [package.dev-dependencies]
 dev = [
     { name = "pyinstaller" },
+    { name = "pywin32" },
 ]
 
 [package.metadata]
@@ -426,7 +427,10 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pyinstaller", specifier = ">=6.21.0" }]
+dev = [
+    { name = "pyinstaller", specifier = ">=6.21.0" },
+    { name = "pywin32", specifier = ">=311" },
+]
 
 [[package]]
 name = "dnspython"

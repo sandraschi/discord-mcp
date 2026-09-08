@@ -1,4 +1,4 @@
-"""Discord message watcher — Gateway WebSocket or REST polling with outbound webhooks.
+"""Discord message watcher - Gateway WebSocket or REST polling with outbound webhooks.
 
 Detects inbound Discord messages and POSTs JSON to robofang, fleet-agent, or any listener.
 Optional auto-reply in-channel (template or echo).
@@ -137,7 +137,7 @@ async def _fire_webhook(webhook_url: str, message: dict[str, Any]) -> None:
 async def _maybe_auto_reply(config: dict[str, Any], message: dict[str, Any]) -> None:
     if not config.get("auto_reply"):
         return
-    template = (config.get("auto_reply_template") or "Thanks {author} — received your message.").strip()
+    template = (config.get("auto_reply_template") or "Thanks {author} - received your message.").strip()
     reply = (
         template.replace("{author}", message.get("author") or "there")
         .replace("{content}", (message.get("content") or "")[:500])
@@ -348,7 +348,7 @@ async def _gateway_loop(config: dict[str, Any]) -> None:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            logger.warning("Gateway loop error: %s — reconnecting in 10s", exc)
+            logger.warning("Gateway loop error: %s - reconnecting in 10s", exc)
             await asyncio.sleep(10)
 
 

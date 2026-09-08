@@ -1,7 +1,9 @@
-"""Discord message watcher — Gateway WebSocket or REST polling with outbound webhooks.
+"""Discord message watcher - Gateway WebSocket or REST polling with outbound webhooks.
 
 Detects inbound Discord messages and POSTs JSON to robofang, fleet-agent, or any listener.
 Optional auto-reply in-channel (template or echo).
+Optional active-window schedule: processing (webhook, auto-reply, RAG, rules) only
+happens inside configured time windows - the gateway stays connected outside them.
 """
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -25,6 +28,64 @@ _watcher_config: dict[str, Any] = {}
 
 # GUILDS | GUILD_MESSAGES | MESSAGE_CONTENT
 _GATEWAY_INTENTS = (1 << 0) | (1 << 9) | (1 << 15)
+
+_DEFAULT_SCHEDULE_TZ = "Europe/Vienna"
+
+
+def _day_matches(days: str, weekday: int) -> bool:
+    """Match a days spec ('wd', 'we', 'all', or '0,2,4' with Monday=0) against a weekday."""
+    spec = (days or "all").strip().lower()
+    if spec in ("all", ""):
+        return True
+    if spec == "wd":
+        return weekday < 5
+    if spec == "we":
+        return weekday >= 5
+    try:
+        return str(weekday) in {d.strip() for d in spec.split(",") if d.strip()}
+    except ValueError:
+        return True
+
+
+def _time_in_window(start: str, end: str, now: datetime) -> bool:
+    """HH:MM window check; end <= start wraps overnight."""
+    h, m = now.hour, now.minute
+    cur = h * 60 + m
+
+    def _parse(value: str) -> int:
+        hh, mm = [*value.split(":"), "0"][:2]
+        return int(hh) * 60 + int(mm)
+
+    s, e = _parse(start), _parse(end)
+    if e <= s:
+        return cur >= s or cur < e
+    return s <= cur < e
+
+
+def _in_active_window(config: dict[str, Any], now: datetime | None = None) -> bool:
+    """True when the watcher should process messages now.
+
+    No schedule configured -> always active (back-compat). Schedule shape:
+    {"tz": "Europe/Vienna", "windows": [{"days": "wd", "start": "09:00", "end": "17:30"}]}
+    """
+    schedule = config.get("schedule")
+    if not schedule:
+        return True
+    windows = schedule.get("windows") or []
+    if not windows:
+        return True
+    try:
+        from zoneinfo import ZoneInfo
+
+        tz_name = schedule.get("tz") or _DEFAULT_SCHEDULE_TZ
+        now = now or datetime.now(ZoneInfo(tz_name))
+    except Exception:
+        now = now or datetime.now()
+    return any(
+        _day_matches(str(w.get("days", "all")), now.weekday())
+        and _time_in_window(str(w.get("start", "00:00")), str(w.get("end", "23:59")), now)
+        for w in windows
+    )
 
 
 def _channel_ids(config: dict[str, Any]) -> set[str]:
@@ -76,7 +137,7 @@ async def _fire_webhook(webhook_url: str, message: dict[str, Any]) -> None:
 async def _maybe_auto_reply(config: dict[str, Any], message: dict[str, Any]) -> None:
     if not config.get("auto_reply"):
         return
-    template = (config.get("auto_reply_template") or "Thanks {author} — received your message.").strip()
+    template = (config.get("auto_reply_template") or "Thanks {author} - received your message.").strip()
     reply = (
         template.replace("{author}", message.get("author") or "there")
         .replace("{content}", (message.get("content") or "")[:500])
@@ -94,6 +155,10 @@ async def _maybe_auto_reply(config: dict[str, Any], message: dict[str, Any]) -> 
 
 
 async def _dispatch_inbound(config: dict[str, Any], raw_message: dict[str, Any]) -> None:
+    if not _in_active_window(config):
+        logger.debug("Message outside active schedule window - skipping dispatch")
+        return
+
     author = raw_message.get("author") or {}
     if author.get("bot"):
         return
@@ -114,6 +179,50 @@ async def _dispatch_inbound(config: dict[str, Any], raw_message: dict[str, Any])
     )
     await _fire_webhook(config.get("webhook_url", ""), message)
     await _maybe_auto_reply(config, message)
+
+    try:
+        from .rules import evaluate_rules
+
+        await evaluate_rules(message)
+    except Exception as e:
+        logger.error("Rules evaluation failed: %s", e)
+
+    try:
+        from .slack_bridge import forward_to_slack
+
+        await forward_to_slack(message.get("channel_id"), message)
+    except Exception as e:
+        logger.error("Slack forwarding failed: %s", e)
+
+    try:
+        from .analytics import tracker
+
+        tracker.record_message()
+    except Exception as exc:
+        logger.debug("Failed to record analytics: %s", exc)
+
+    if config.get("auto_rag"):
+        try:
+            from .rag import ingest_messages
+
+            msg_dict = {
+                "id": message.get("id"),
+                "author": message.get("author"),
+                "content": message.get("content"),
+                "timestamp": message.get("timestamp"),
+            }
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                ingest_messages,
+                [msg_dict],
+                "",  # guild_name
+                "",  # channel_name
+                message.get("channel_id"),
+                message.get("guild_id"),
+            )
+        except Exception as e:
+            logger.error("Auto RAG ingestion failed: %s", e)
 
 
 async def _poll_loop(config: dict[str, Any]) -> None:
@@ -213,9 +322,7 @@ async def _gateway_loop(config: dict[str, Any]) -> None:
                         heartbeat_interval = d.get("heartbeat_interval", 45000) / 1000.0
                         if heartbeat_task:
                             heartbeat_task.cancel()
-                        heartbeat_task = asyncio.create_task(
-                            heartbeat_loop(heartbeat_interval or 30.0, seq_box)
-                        )
+                        heartbeat_task = asyncio.create_task(heartbeat_loop(heartbeat_interval or 30.0, seq_box))
                         identify = {
                             "op": 2,
                             "d": {
@@ -241,7 +348,7 @@ async def _gateway_loop(config: dict[str, Any]) -> None:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            logger.warning("Gateway loop error: %s — reconnecting in 10s", exc)
+            logger.warning("Gateway loop error: %s - reconnecting in 10s", exc)
             await asyncio.sleep(10)
 
 
@@ -261,6 +368,8 @@ def start_message_watcher(
     channels: list[dict[str, Any]] | None = None,
     auto_reply: bool = False,
     auto_reply_template: str = "",
+    auto_rag: bool = False,
+    schedule: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Start background Discord message watcher."""
     global _watcher_task, _watcher_config
@@ -286,7 +395,10 @@ def start_message_watcher(
         "channels": chans,
         "auto_reply": auto_reply,
         "auto_reply_template": auto_reply_template,
+        "auto_rag": auto_rag,
     }
+    if schedule and schedule.get("windows"):
+        _watcher_config["schedule"] = schedule
     loop = asyncio.get_event_loop()
     _watcher_task = loop.create_task(_run_watcher(_watcher_config))
     return {
@@ -333,5 +445,6 @@ async def maybe_autostart_from_env() -> None:
         channels=channels,
         auto_reply=os.environ.get("DISCORD_COMMS_AUTO_REPLY", "").lower() in ("1", "true", "yes"),
         auto_reply_template=os.environ.get("DISCORD_COMMS_AUTO_REPLY_TEMPLATE", ""),
+        auto_rag=os.environ.get("DISCORD_COMMS_AUTO_RAG", "").lower() in ("1", "true", "yes"),
     )
     logger.info("Message watcher autostarted from environment")
