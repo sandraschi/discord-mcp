@@ -92,6 +92,118 @@ async def test_assign_role_success():
 
 
 @pytest.mark.asyncio
+async def test_set_channel_permission_success_named_flags():
+    """Category-level overwrite: role can view + read history, denied send --
+    the exact 'read-only channel group' shape this operation exists for."""
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(204, method="PUT"),
+    ) as mock_req:
+        out = await discord_tool(
+            operation="set_channel_permission",
+            channel_id="cat1",
+            overwrite_id="role1",
+            overwrite_type=0,
+            allow="VIEW_CHANNEL,READ_MESSAGE_HISTORY",
+            deny="SEND_MESSAGES",
+        )
+    assert out["success"] is True
+    assert out["type"] == "role"
+    assert out["allow"] == str(0x0000000400 | 0x0000010000)
+    assert out["deny"] == str(0x0000000800)
+    sent_json = mock_req.call_args.kwargs["json"]
+    assert sent_json["type"] == 0
+
+
+@pytest.mark.asyncio
+async def test_set_channel_permission_accepts_raw_bitfield():
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(204, method="PUT"),
+    ):
+        out = await discord_tool(
+            operation="set_channel_permission", channel_id="c1", overwrite_id="r1", allow="1024", deny="2048"
+        )
+    assert out["success"] is True
+    assert out["allow"] == "1024"
+    assert out["deny"] == "2048"
+
+
+@pytest.mark.asyncio
+async def test_set_channel_permission_unknown_flag_name_rejected():
+    out = await discord_tool(
+        operation="set_channel_permission", channel_id="c1", overwrite_id="r1", allow="NOT_A_REAL_FLAG"
+    )
+    assert out["success"] is False
+    assert "Unknown permission flag" in out["error"]
+
+
+@pytest.mark.asyncio
+async def test_set_channel_permission_requires_overwrite_id():
+    out = await discord_tool(operation="set_channel_permission", channel_id="c1")
+    assert out["success"] is False
+    assert "overwrite_id" in out["error"]
+
+
+@pytest.mark.asyncio
+async def test_set_channel_permission_forbidden():
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(403, method="PUT"),
+    ):
+        out = await discord_tool(
+            operation="set_channel_permission", channel_id="c1", overwrite_id="r1", allow="VIEW_CHANNEL"
+        )
+    assert out["success"] is False
+    assert "MANAGE_ROLES" in out["error"]
+
+
+@pytest.mark.asyncio
+async def test_delete_channel_permission_success():
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(204, method="DELETE"),
+    ):
+        out = await discord_tool(operation="delete_channel_permission", channel_id="c1", overwrite_id="r1")
+    assert out["success"] is True
+    assert out["deleted"] is True
+
+
+@pytest.mark.asyncio
+async def test_delete_channel_permission_not_found():
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(404, method="DELETE"),
+    ):
+        out = await discord_tool(operation="delete_channel_permission", channel_id="c1", overwrite_id="r1")
+    assert out["success"] is False
+    assert "No overwrite found" in out["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_channel_returns_permission_overwrites():
+    body = {
+        "id": "c1",
+        "name": "general",
+        "type": 0,
+        "permission_overwrites": [{"id": "r1", "type": 0, "allow": "1024", "deny": "2048"}],
+    }
+    with patch(
+        "discord_mcp.portmanteau._discord_request",
+        new_callable=AsyncMock,
+        return_value=discord_response(200, json_body=body),
+    ):
+        out = await discord_tool(operation="get_channel", channel_id="c1")
+    assert out["success"] is True
+    assert out["channel"]["permission_overwrites"][0]["id"] == "r1"
+
+
+@pytest.mark.asyncio
 async def test_list_webhooks_success():
     body = [{"id": "w1", "name": "Hook", "channel_id": "c1", "guild_id": "g1", "token": "tok"}]
     with patch(

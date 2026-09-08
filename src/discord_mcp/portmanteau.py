@@ -57,6 +57,7 @@ _DESTRUCTIVE_OPS = frozenset(
         "delete_webhook",
         "delete_emoji",
         "revoke_invite",
+        "delete_channel_permission",
     }
 )
 
@@ -297,6 +298,31 @@ async def discord_tool(
     color: Annotated[int, Field(description="RGB color for role (0=default).", ge=0, le=16777215)] = 0,
     hoist: Annotated[bool, Field(description="Display role members separately from online users.")] = False,
     mentionable: Annotated[bool, Field(description="Allow anyone to @mention this role.")] = False,
+    overwrite_id: Annotated[
+        str | None,
+        Field(description="Role or member snowflake ID the permission overwrite applies to (set/delete_channel_permission)."),
+    ] = None,
+    overwrite_type: Annotated[
+        int, Field(description="Overwrite target type for set_channel_permission: 0=role, 1=member.", ge=0, le=1)
+    ] = 0,
+    allow: Annotated[
+        str,
+        Field(
+            description=(
+                "Permissions to allow for set_channel_permission: a raw bitfield string ('1024') or "
+                "comma-separated flag names ('VIEW_CHANNEL,SEND_MESSAGES')."
+            )
+        ),
+    ] = "0",
+    deny: Annotated[
+        str,
+        Field(
+            description=(
+                "Permissions to deny for set_channel_permission: a raw bitfield string or "
+                "comma-separated flag names, same format as allow."
+            )
+        ),
+    ] = "0",
     webhook_id: Annotated[str | None, Field(description="Webhook ID for delete/send operations.")] = None,
     webhook_token: Annotated[str | None, Field(description="Webhook token for send_webhook (execute).")] = None,
     webhook_name: Annotated[str, Field(description="Name for create_webhook.")] = "",
@@ -309,9 +335,9 @@ async def discord_tool(
     query_text: Annotated[str, Field(description="Semantic search query text for rag_query.")] = "",
     top_k: Annotated[int, Field(description="Number of top results for rag_query (1-100).", ge=1, le=100)] = 10,
 ) -> dict:
-    """Unified Discord portmanteau tool — single entry point for all Discord REST API operations.
+    """Unified Discord portmanteau tool - single entry point for all Discord REST API operations.
 
-    [RATIONALE] Portmanteau consolidates 36 Discord operations into one tool, avoiding dozens of
+    [RATIONALE] Portmanteau consolidates 46 Discord operations into one tool, avoiding dozens of
     atomic tools that bloat the MCP host context. The operation parameter dispatches internally.
 
     Operations: list_guilds, list_channels, get_channel, update_channel, update_guild, send_message,
@@ -319,8 +345,18 @@ async def discord_tool(
     create_thread, list_active_threads, get_guild_stats, create_channel, delete_channel, create_guild,
     create_invite, list_invites, revoke_invite, list_members, get_member, ban_member, unban_member,
     kick_member, timeout_member, list_bans, create_dm, list_roles, create_role, delete_role,
-    assign_role, remove_role, list_webhooks, create_webhook, delete_webhook, send_webhook, list_emojis,
-    delete_emoji, list_stickers, get_audit_log, rag_ingest, rag_query.
+    assign_role, remove_role, set_channel_permission, delete_channel_permission, list_webhooks,
+    create_webhook, delete_webhook, send_webhook, list_emojis, delete_emoji, list_stickers,
+    get_audit_log, rag_ingest, rag_query.
+
+    ## Roles and channel access (full coverage)
+    Role membership (create_role, assign_role, remove_role, delete_role) controls what a role
+    grants server-wide. **Channel/category-level access** -- "this role can read but not post in
+    category X, and can post in channel Y" -- is a separate mechanism: permission *overwrites* on
+    the channel or category itself, set via set_channel_permission. Category overwrites cascade to
+    every channel inside unless that channel has its own overwrite for the same role/member, which
+    takes precedence. get_channel/list_channels now return each channel's permission_overwrites so
+    existing access can be audited without a separate call.
 
     ## Return Format
     {"success": bool, ...operation-specific fields, "error": str (on failure)}
@@ -338,6 +374,9 @@ async def discord_tool(
     discord(operation="ban_member", guild_id="456", user_id="789", reason="Spam")
     discord(operation="create_dm", user_id="789")
     discord(operation="get_audit_log", guild_id="456", limit=20)
+    discord(operation="set_channel_permission", channel_id="123", overwrite_id="role456",
+            allow="VIEW_CHANNEL,READ_MESSAGE_HISTORY", deny="SEND_MESSAGES")
+    discord(operation="delete_channel_permission", channel_id="123", overwrite_id="role456")
     """
     correlation_id = getattr(ctx, "correlation_id", "mcp") if ctx else "manual"
     logger.info("Executing discord operation: %s", operation, extra={"correlation_id": correlation_id})
@@ -542,6 +581,14 @@ async def discord_tool(
             if not guild_id or not user_id or not role_id:
                 return {"success": False, "error": "remove_role requires guild_id, user_id, and role_id."}
             return await _remove_role(guild_id, user_id, role_id)
+        if op_lower == "set_channel_permission":
+            if not channel_id or not overwrite_id:
+                return {"success": False, "error": "set_channel_permission requires channel_id and overwrite_id."}
+            return await _set_channel_permission(channel_id, overwrite_id, overwrite_type, allow, deny)
+        if op_lower == "delete_channel_permission":
+            if not channel_id or not overwrite_id:
+                return {"success": False, "error": "delete_channel_permission requires channel_id and overwrite_id."}
+            return await _delete_channel_permission(channel_id, overwrite_id)
         if op_lower == "list_webhooks":
             if not channel_id:
                 return {"success": False, "error": "list_webhooks requires channel_id."}
@@ -584,7 +631,8 @@ async def discord_tool(
                 "get_messages, edit_message, delete_message, export_messages, list_active_threads, get_guild_stats, "
                 "create_channel, delete_channel, create_guild, create_invite, list_invites, revoke_invite, list_members, "
                 "get_member, ban_member, unban_member, kick_member, timeout_member, list_bans, create_dm, "
-                "list_roles, create_role, delete_role, assign_role, remove_role, list_webhooks, create_webhook, "
+                "list_roles, create_role, delete_role, assign_role, remove_role, set_channel_permission, "
+                "delete_channel_permission, list_webhooks, create_webhook, "
                 "delete_webhook, send_webhook, list_emojis, delete_emoji, list_stickers, get_audit_log, "
                 "rag_ingest, rag_query."
             ),
@@ -719,7 +767,7 @@ async def _export_messages_markdown(channel_id: str, limit: int = 50) -> dict:
                 if title and url:
                     parts.append(f"🔗 [{title}]({url})")
         body = "\n".join(parts)
-        lines.append(f"### {author} — {ts}\n{body}\n")
+        lines.append(f"### {author} - {ts}\n{body}\n")
     return {"success": True, "markdown": "\n".join(lines), "count": len(messages)}
 
 
@@ -783,7 +831,110 @@ def _serialize_channel(c: dict) -> dict:
         "position": c.get("position"),
         "nsfw": c.get("nsfw", False),
         "slowmode": c.get("rate_limit_per_user", 0),
+        "permission_overwrites": [
+            {"id": o.get("id"), "type": o.get("type"), "allow": o.get("allow"), "deny": o.get("deny")}
+            for o in (c.get("permission_overwrites") or [])
+        ],
     }
+
+
+# Commonly-needed channel permission flags for set_channel_permission's allow/deny
+# params, so callers can pass names ("VIEW_CHANNEL,SEND_MESSAGES") instead of
+# hand-computing Discord's bitfield values. Raw bitfield strings still work.
+# Subset covering text + voice channel access control; see Discord's permissions
+# reference for the full ~50-flag set if a rarer one is needed.
+_PERMISSION_FLAGS: dict[str, int] = {
+    "CREATE_INSTANT_INVITE": 0x0000000001,
+    "MANAGE_CHANNELS": 0x0000000010,
+    "ADD_REACTIONS": 0x0000000040,
+    "VIEW_CHANNEL": 0x0000000400,
+    "SEND_MESSAGES": 0x0000000800,
+    "MANAGE_MESSAGES": 0x0000002000,
+    "EMBED_LINKS": 0x0000004000,
+    "ATTACH_FILES": 0x0000008000,
+    "READ_MESSAGE_HISTORY": 0x0000010000,
+    "MENTION_EVERYONE": 0x0000020000,
+    "CONNECT": 0x0000100000,
+    "SPEAK": 0x0000200000,
+    "USE_VAD": 0x0000400000,
+    "MANAGE_ROLES": 0x0000000010 << 24,  # 0x10000000, channel-scoped MANAGE_ROLES bit
+    "CREATE_PUBLIC_THREADS": 0x0800000000,
+    "CREATE_PRIVATE_THREADS": 0x1000000000,
+    "SEND_MESSAGES_IN_THREADS": 0x4000000000,
+}
+
+
+def _resolve_permission_bits(value: str) -> tuple[str | None, str | None]:
+    """Accept either a raw Discord permission bitfield string ("1024") or
+    comma-separated named flags ("VIEW_CHANNEL,SEND_MESSAGES"). Returns
+    ``(bitfield_str, error)`` -- error is None on success."""
+    if not value or not value.strip():
+        return "0", None
+    value = value.strip()
+    if value.lstrip("-").isdigit():
+        return value, None
+    total = 0
+    for name in value.split(","):
+        name = name.strip().upper()
+        if not name:
+            continue
+        if name not in _PERMISSION_FLAGS:
+            return None, f"Unknown permission flag '{name}'. Known: {', '.join(sorted(_PERMISSION_FLAGS))}"
+        total |= _PERMISSION_FLAGS[name]
+    return str(total), None
+
+
+async def _set_channel_permission(
+    channel_id: str, overwrite_id: str, overwrite_type: int = 0, allow: str = "0", deny: str = "0"
+) -> dict:
+    """Set (create or replace) a permission overwrite on a channel or category
+    for a role (type 0) or member (type 1). Category overwrites cascade to
+    the channels inside it unless a channel has its own overwrite for the
+    same role/member."""
+    allow_bits, err = _resolve_permission_bits(allow)
+    if err:
+        return {"success": False, "error": f"Invalid 'allow' value: {err}"}
+    deny_bits, err = _resolve_permission_bits(deny)
+    if err:
+        return {"success": False, "error": f"Invalid 'deny' value: {err}"}
+    payload = {"allow": allow_bits, "deny": deny_bits, "type": overwrite_type}
+    async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
+        r = await _discord_request(
+            client,
+            "PUT",
+            f"{DISCORD_API}/channels/{channel_id}/permissions/{overwrite_id}",
+            headers=_headers(),
+            json=payload,
+        )
+        if r.status_code == 403:
+            return {"success": False, "error": "Missing MANAGE_ROLES permission on this channel."}
+        if r.status_code != 204:
+            return _discord_api_error(r)
+        return {
+            "success": True,
+            "channel_id": channel_id,
+            "overwrite_id": overwrite_id,
+            "type": "role" if overwrite_type == 0 else "member",
+            "allow": allow_bits,
+            "deny": deny_bits,
+        }
+
+
+async def _delete_channel_permission(channel_id: str, overwrite_id: str) -> dict:
+    """Remove a permission overwrite from a channel or category, reverting
+    that role/member to whatever the parent category or their other roles
+    grant."""
+    async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
+        r = await _discord_request(
+            client, "DELETE", f"{DISCORD_API}/channels/{channel_id}/permissions/{overwrite_id}", headers=_headers()
+        )
+        if r.status_code == 404:
+            return {"success": False, "error": "No overwrite found for that id on this channel."}
+        if r.status_code == 403:
+            return {"success": False, "error": "Missing MANAGE_ROLES permission on this channel."}
+        if r.status_code != 204:
+            return _discord_api_error(r)
+        return {"success": True, "channel_id": channel_id, "overwrite_id": overwrite_id, "deleted": True}
 
 
 async def _get_channel(channel_id: str) -> dict:
@@ -1367,7 +1518,7 @@ async def _delete_webhook(webhook_id: str) -> dict:
 
 
 async def _send_webhook(webhook_id: str, webhook_token: str, content: str) -> dict:
-    """Execute a webhook — uses webhook token auth, not bot token."""
+    """Execute a webhook - uses webhook token auth, not bot token."""
     async with httpx.AsyncClient(timeout=_DISCORD_HTTP_TIMEOUT) as client:
         r = await client.post(
             f"{DISCORD_API}/webhooks/{webhook_id}/{webhook_token}?wait=true",

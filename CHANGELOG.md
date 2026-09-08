@@ -1,6 +1,28 @@
 
 ## [Unreleased]
 ### Added
+- **Full channel/category permission-overwrite coverage (44 -> 46 operations): `set_channel_permission`, `delete_channel_permission`.**
+  - Role management (`create_role`/`assign_role`/`remove_role`) controls what a role grants
+    server-wide, but not what it can do in a *specific* channel or category -- that's a separate
+    Discord mechanism (permission overwrites on the channel/category itself), which had no
+    coverage until now.
+  - `set_channel_permission(channel_id, overwrite_id, overwrite_type, allow, deny)`: PUT
+    `/channels/{id}/permissions/{overwrite_id}`. `overwrite_type` 0=role, 1=member. `allow`/`deny`
+    accept either a raw bitfield string or comma-separated flag names (`VIEW_CHANNEL,SEND_MESSAGES`)
+    resolved against a `_PERMISSION_FLAGS` table, so callers don't hand-compute Discord's bitfield
+    values. Category overwrites cascade to channels inside unless the channel has its own overwrite
+    for the same role/member.
+  - `delete_channel_permission(channel_id, overwrite_id)`: DELETE the overwrite, reverting to
+    whatever the parent category or the role's other grants provide. Added to `_DESTRUCTIVE_OPS`
+    (DeepFang preflight-gateable) since removing a restriction can open access unexpectedly;
+    `set_channel_permission` is not gated, matching `assign_role`/`create_role`.
+  - `get_channel`/`list_channels` now also return each channel's `permission_overwrites`, so
+    existing access can be audited without a separate call.
+  - Tests: `tests/test_portmanteau_ops.py` (8 new cases -- named-flag resolution, raw bitfield
+    passthrough, unknown-flag rejection, missing-param validation, 403/404 handling, overwrite
+    surfaced on `get_channel`).
+
+### Added
 - **Comms watcher: active-window schedule + auto-RAG UI toggle.**
   - Watcher can be restricted to time windows (`schedule: {tz, windows:[{days, start, end}]}`)
     - days: `wd` / `we` / `all` / `0,2,4` (Mon=0); end <= start wraps overnight.
