@@ -105,8 +105,8 @@ $configs = @{
     'email-mcp' = @{
         App = "D:\Dev\repos\email-mcp\.venv\Scripts\python.exe"
         Dir = "D:\Dev\repos\email-mcp"
-        Args = "run_server.py"
-        Env = @("VIRTUAL_ENV=D:\Dev\repos\email-mcp\.venv")
+        Args = "-m email_mcp.server --http --port 10813"
+        Env = @("VIRTUAL_ENV=D:\Dev\repos\email-mcp\.venv", "PORT=10813", "MCP_PORT=10813")
     }
     'fastsearch-mcp' = @{
         App = "D:\Dev\repos\fastsearch-mcp\.venv\Scripts\uvicorn.exe"
@@ -146,7 +146,7 @@ $configs = @{
         App = "D:\Dev\repos\tvtropes-mcp\.venv\Scripts\python.exe"
         Dir = "D:\Dev\repos\tvtropes-mcp"
         Args = "run_server.py"
-        Env = @("VIRTUAL_ENV=D:\Dev\repos\tvtropes-mcp\.venv")
+        Env = @("VIRTUAL_ENV=D:\Dev\repos\tvtropes-mcp\.venv", "PORT=10964", "MCP_PORT=10964")
     }
 }
 
