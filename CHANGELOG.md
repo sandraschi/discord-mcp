@@ -1,5 +1,15 @@
 
 ## [Unreleased]
+### Fixed & Infrastructure (2026-09-10)
+- **NSSM Service & Path Recovery (Fleet-Wide `D:\Dev\repos` Migration):**
+  - Repointed `discord-mcp` and 15 other fleet services from stale `C:\dev\repos` paths to canonical `D:\Dev\repos\discord-mcp` across 60 registry keys.
+  - Added user DACL (`sc.exe sdset`) granting service query, start, and stop rights to `sandr` without administrative elevation.
+  - Configured persistent Windows Service Control Manager failure actions (`actions= restart/5000/restart/10000/restart/30000 reset= 86400`) for unattended auto-recovery across reboots and crashes.
+  - Fixed `.env` token resolution: populated `DISCORD_TOKEN` alongside `DISCORD_BOT_TOKEN`, verified live Discord gateway connectivity, and restored web dashboard status on `:10757` to green (`status: ok`, `token_set: true`).
+  - Modernized `start.ps1` to delegate to fleet-standard `Invoke-FleetWebappStart.ps1`.
+  - Optimized NSSM execution to invoke `.venv\Scripts\python.exe` directly, eliminating intermediate `uv.exe` wrapper process bloat.
+  - Created fleet automation tools `repoint-all-services.bat` and `optimize-fleet-ram.bat`.
+
 ### Added
 - **Full channel/category permission-overwrite coverage (44 -> 46 operations): `set_channel_permission`, `delete_channel_permission`.**
   - Role management (`create_role`/`assign_role`/`remove_role`) controls what a role grants
