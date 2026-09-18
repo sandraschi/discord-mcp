@@ -11,10 +11,7 @@ default:
 
 # Install all dependencies (Python + webapp)
 bootstrap:
-    Set-Location '{{justfile_directory()}}'
-    uv sync
-    Set-Location '{{justfile_directory()}}\webapp'
-    npm install
+    Set-Location '{{justfile_directory()}}'; uv sync; Set-Location '{{justfile_directory()}}\webapp'; npm install
 
 # --- Serve ---
 
@@ -27,25 +24,17 @@ dev: serve
 
 # Start the frontend only (Vite dev server)
 web:
-    Set-Location '{{justfile_directory()}}\webapp'
-    npm run dev
+    Set-Location '{{justfile_directory()}}\webapp'; npm run dev
 
 # --- Quality ---
 
 # Execute Ruff SOTA v13.1 linting
 lint:
-    Set-Location '{{justfile_directory()}}'
-    uv run ruff check .
-    Set-Location '{{justfile_directory()}}\webapp'
-    npx @biomejs/biome ci .
+    Set-Location '{{justfile_directory()}}'; uv run ruff check .; Set-Location '{{justfile_directory()}}\webapp'; npx @biomejs/biome ci .
 
 # Execute Ruff SOTA v13.1 fix and formatting
 fix:
-    Set-Location '{{justfile_directory()}}'
-    uv run ruff check . --fix --unsafe-fixes
-    uv run ruff format .
-    Set-Location '{{justfile_directory()}}\webapp'
-    npx @biomejs/biome check --write .
+    Set-Location '{{justfile_directory()}}'; uv run ruff check . --fix --unsafe-fixes; uv run ruff format .; Set-Location '{{justfile_directory()}}\webapp'; npx @biomejs/biome check --write .
 
 # --- Hardening ---
 
@@ -82,8 +71,6 @@ build-native:
 
 # Build Tauri native app (debug, skip PyInstaller)
 build-native-debug:
-    Set-Location '{{justfile_directory()}}\native'
-    $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
-    npx @tauri-apps/cli build --debug
+    Set-Location '{{justfile_directory()}}\native'; $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"; npx @tauri-apps/cli build --debug
 
 # Bootstrap: install dev deps + pre-commit hook

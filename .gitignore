@@ -29,6 +29,8 @@ ENV/
 # Env and secrets
 .env
 .env.local
+.env.*
+!.env.example
 *.pem
 
 # Node / webapp

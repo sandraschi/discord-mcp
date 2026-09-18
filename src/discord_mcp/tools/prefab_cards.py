@@ -35,7 +35,7 @@ def register_prefab_tools(mcp: FastMCP) -> None:
             Heading(f"{count} guild(s)")
             for g in guilds:
                 Row(label=g["name"], value=f"ID: {g['id']}")
-        return ToolResult(content=plain, structured=app)
+        return ToolResult(content=plain, structured_content=app)
 
     @mcp.tool(app=True)
     async def show_guild_channels_card(guild_id: str) -> ToolResult:
@@ -63,4 +63,4 @@ def register_prefab_tools(mcp: FastMCP) -> None:
             Heading(f"{len(channels)} channel(s)")
             for c in channels:
                 Row(label=c["name"], value=type_names.get(c["type"], str(c["type"])))
-        return ToolResult(content=plain, structured=app)
+        return ToolResult(content=plain, structured_content=app)
