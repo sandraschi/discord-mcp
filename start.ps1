@@ -1,4 +1,9 @@
-﻿# Fleet unified launcher - do not edit logic here.
+# *********************************************************************************
+# * SOTA Fleet Orchestration - Standardized Start System (v1.19.0)                *
+# * Generated/Repaired by Antigravity on 2026-09-27                  *
+# *********************************************************************************
+
+# Fleet unified launcher - do not edit logic here.
 # Change fleet-start.config.ps1 at the repo root instead.
 param(
     [switch]$Headless,
@@ -35,3 +40,17 @@ if (-not $configPath) {
 
 Start-FleetWebapp @PSBoundParameters -ConfigPath $configPath -LauncherRoot $PSScriptRoot
 
+
+
+# --- SOTA PORT SAFETY START ---
+# Ports live in fleet-start.config.ps1 (no $Port var in this file).
+foreach ($portNum in @(10756, 10757)) {
+    Get-NetTCPConnection -LocalPort $portNum -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($_.OwningProcess -ne $PID) {
+            Write-Host "Clearing stale listener on port $portNum (PID $($_.OwningProcess))..." -ForegroundColor Yellow
+            Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+Start-Sleep -Seconds 1
+# --- SOTA PORT SAFETY END ---
