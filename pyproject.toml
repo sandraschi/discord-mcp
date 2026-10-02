@@ -15,6 +15,7 @@ dependencies = [
     "sentence-transformers>=3.0.0",
     "pyarrow>=14.0.0",
     "prefab-ui>=0.14.0",
+    "tzdata>=2024.1; sys_platform == 'win32'",
     "websockets>=12.0",
 ]
 
@@ -57,6 +58,9 @@ markers = [
 
 [dependency-groups]
 dev = [
+    "pillow>=12.3.0",
     "pyinstaller>=6.21.0",
+    "pytesseract>=0.3.13",
     "pywin32>=311",
+    "pywinauto>=0.6.9",
 ]

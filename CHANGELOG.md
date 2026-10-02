@@ -1,5 +1,13 @@
 
 ## [Unreleased]
+### Added (2026-10-02)
+- **`show_messages_card(channel_id, since="today", limit=50)`**: Prefab cards for channel messages,
+  oldest first. `since` accepts `today` (midnight Europe/Vienna), `all`, `YYYY-MM-DD` or an ISO
+  datetime. Work-report digests (`[agent] date | title | status`) get an agent/status header.
+  Message text is shown as plain text in the card; the text returned to the model is wrapped as
+  untrusted data. Report headers use allowlisted agent/status values only, so a forged post cannot
+  put attacker text in a card title. Adds `tzdata` on Windows (no system tz database).
+
 ### Fixed & Infrastructure (2026-09-10)
 - **NSSM Service & Path Recovery (Fleet-Wide `D:\Dev\repos` Migration):**
   - Repointed `discord-mcp` and 15 other fleet services from stale `C:\dev\repos` paths to canonical `D:\Dev\repos\discord-mcp` across 60 registry keys.
