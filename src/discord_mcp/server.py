@@ -751,6 +751,14 @@ async def health():
     }
 
 
+async def _prompt_descriptions() -> dict[str, str]:
+    """Live prompt name -> description map (never breaks /meta on failure)."""
+    try:
+        return {p.name: (getattr(p, "description", "") or "") for p in await mcp.list_prompts()}
+    except Exception:
+        return {}
+
+
 @app.get("/api/v1/meta")
 async def meta():
     return {
@@ -811,6 +819,7 @@ async def meta():
             "discord_rag_workflow",
             "discord_invite_operations",
         ],
+        "prompt_descriptions": await _prompt_descriptions(),
         "resources": ["resource://discord-mcp/capabilities"],
         "skills_root": str(SKILLS_ROOT),
         "sampling": sampling_handler.status(),

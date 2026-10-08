@@ -62,6 +62,7 @@ export interface Meta {
   mcp_path?: string;
   tools?: string[];
   prompts?: string[];
+  prompt_descriptions?: Record<string, string>;
   resources?: string[];
   skills_root?: string;
   sampling?: SamplingStatus;

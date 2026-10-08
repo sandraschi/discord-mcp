@@ -52,13 +52,16 @@ export default function Tools() {
       <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-6 space-y-3">
         <h3 className="text-sm font-semibold text-slate-200">Prompts</h3>
         {meta?.prompts?.length ? (
-          <ul className="flex flex-wrap gap-2">
+          <ul className="grid gap-2">
             {meta.prompts.map((p) => (
               <li
                 key={p}
-                className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 text-xs text-indigo-200"
+                className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-4 py-2.5"
               >
-                {p}
+                <span className="font-mono text-xs text-indigo-200">{p}</span>
+                {meta.prompt_descriptions?.[p] && (
+                  <p className="text-xs text-slate-400 mt-1">{meta.prompt_descriptions[p]}</p>
+                )}
               </li>
             ))}
           </ul>
