@@ -76,6 +76,20 @@ server banner (Retry button).
 
 **Fix:** `uv sync --all-extras` and `Set-Location webapp; npm install`
 
+## RAG says "Embedding model changed", search returns nothing new
+
+**Cause:** Vector width changed (e.g. old 384d local table vs 768d
+`nomic-embed-text`). Mixed-dimension tables are rejected on purpose
+**Fix:** Re-ingest with `overwrite=true` (RAG page → full reindex). This
+wipes and rebuilds the table with the current provider.
+
+## RAG ingest fails: "Ollama not reachable"
+
+**Cause:** Ollama down, wrong `OLLAMA_BASE_URL`, or model not pulled
+**Fix:** Start Ollama, run `ollama pull nomic-embed-text` (or your
+`RAG_EMBED_MODEL`), retry. Offline alternative: `RAG_EMBEDDINGS=local`
+plus a manual `pip install sentence-transformers` (torch stack, ~600MB).
+
 ## Still stuck
 
 [Open a GitHub issue](https://github.com/sandraschi/discord-mcp/issues) with `/api/v1/health` output (redact token).

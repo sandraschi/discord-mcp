@@ -1,5 +1,16 @@
 
 ## [Unreleased]
+### Changed (2026-10-08)
+- **RAG embeddings via Ollama (torch stack dropped).** Default provider is
+  now `ollama/nomic-embed-text` (768d, model pulls lazily on first use);
+  `sentence-transformers` removed from dependencies with it go torch,
+  scipy, scikit-learn, transformers (~600MB of venv). Opt-in local path
+  (`RAG_EMBEDDINGS=local`, FastEmbed → sentence-transformers) preserved.
+  New: batched `/api/embed` client, vector-width guard (384d tables fail
+  loudly with an `overwrite=true` rebuild hint instead of corrupt results),
+  `embedding_provider`/`embedding_dim` in RAG telemetry. Env:
+  `RAG_EMBEDDINGS`, `OLLAMA_BASE_URL`, `RAG_EMBED_MODEL`. Live-verified
+  against local Ollama. Existing 384d tables need one full re-ingest.
 ### Added (2026-10-08)
 - **Webapp gap fill A–D: every backend tool now has UI.** P1 moderation:
   message edit/delete (list + card views, inline editor), member timeout

@@ -40,6 +40,23 @@ See [comms-watcher.md](./comms-watcher.md) and [robofang-integration.md](./robof
 | `DISCORD_MAX_MESSAGE_LENGTH` | `2000` | Max message length (Discord limit) |
 | `DISCORD_MIN_MESSAGE_INTERVAL_SECONDS` | `5.0` | Minimum gap between any two sends |
 
+## RAG embeddings (Ollama by default)
+
+Vectors come from your local Ollama server — the model pulls lazily from
+the web on first use, nothing ML-related ships in the installer.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RAG_EMBEDDINGS` | `ollama` | `ollama` or `local` (local needs sentence-transformers installed — torch stack) |
+| `OLLAMA_BASE_URL` | `DISCORD_SAMPLING_BASE_URL` minus `/v1`, else `http://localhost:11434` | Native Ollama API base |
+| `RAG_EMBED_MODEL` | `nomic-embed-text` (768d) | Embedding model; pull first: `ollama pull <model>` |
+| `RAG_GPU` | — | `1` only affects the `local` path (FastEmbed/ST device); Ollama serves on its own GPU |
+| `LANCEDB_DISCORD_PATH` | `data/discord_lancedb` | Vector store location |
+
+Switching models changes vector width (384d local vs 768d nomic) — old
+tables are incompatible. Ingest/search fail loudly with a rebuild hint;
+re-ingest with `overwrite=true` (RAG page → full reindex).
+
 ## Setting variables
 
 ### Repo `.env` (recommended for local dev)
