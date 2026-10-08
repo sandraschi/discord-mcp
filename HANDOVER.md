@@ -66,3 +66,14 @@ Roles overwrites matrix, DM mode on Send, guild rename on Guilds.
 P4: live prompt descriptions on Tools. WONTDO: emoji/sticker browsers.
 Verified each batch (tsc, ruff, pytest 90). 5 commits pushed, tree clean.
 Live browser click-through still needs the restarted backend.
+
+## 2026-10-08 (evening): RAG torch cut → Ollama embeddings
+`rag.py` provider layer rewritten: default `ollama/nomic-embed-text`
+(768d, lazy model pull), opt-in `RAG_EMBEDDINGS=local` fallback;
+batched `/api/embed` client, vector-width guard with rebuild hint,
+provider+dim in telemetry. `sentence-transformers` dropped from
+pyproject (torch/scipy/sklearn/transformers pruned via uv sync).
+4 new tests, 94 passed. Live-verified vs local Ollama. Justfile
+bootstrap fixed (`uv sync --extra dev` — plain sync drops pytest).
+Existing 384d tables need one `overwrite=true` re-ingest. Installer
+still 322MB until next NSIS rebuild. 2 commits pushed.
