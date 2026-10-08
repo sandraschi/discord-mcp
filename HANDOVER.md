@@ -57,3 +57,12 @@ Fix: config now declares `NssmService='discord-mcp'` + `Kind='nssm'`
 (canonical repair-script schema); wrapper funnels to repo `start.bat`
 (single orchestrator: UAC → sc stop/start with fresh-PID verify → frontend
 → health gates). Next step unchanged: click it, approve UAC once.
+
+## 2026-10-08 (later): backend tools surfaced in webapp (A→D)
+P1 moderation: message edit/delete, member timeout, invite revoke.
+P2: channel edit dialog, pins panel + per-message Pin, webhook test-fire,
+EmbedBuilder silent channel-load fixed. P3: NEW permissions routes +
+Roles overwrites matrix, DM mode on Send, guild rename on Guilds.
+P4: live prompt descriptions on Tools. WONTDO: emoji/sticker browsers.
+Verified each batch (tsc, ruff, pytest 90). 5 commits pushed, tree clean.
+Live browser click-through still needs the restarted backend.
