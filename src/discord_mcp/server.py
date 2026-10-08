@@ -925,6 +925,32 @@ async def api_update_channel(channel_id: str, body: dict = Body(...)):
     return out
 
 
+@app.put("/api/v1/channels/{channel_id}/permissions/{overwrite_id}")
+async def api_set_channel_permission(channel_id: str, overwrite_id: str, body: dict = Body(...)):
+    out = await discord_tool(
+        ctx=None,
+        operation="set_channel_permission",
+        channel_id=channel_id,
+        overwrite_id=overwrite_id,
+        overwrite_type=int(body.get("overwrite_type", 0)),
+        allow=str(body.get("allow", "0")),
+        deny=str(body.get("deny", "0")),
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Permission update failed"))
+    return out
+
+
+@app.delete("/api/v1/channels/{channel_id}/permissions/{overwrite_id}")
+async def api_delete_channel_permission(channel_id: str, overwrite_id: str):
+    out = await discord_tool(
+        ctx=None, operation="delete_channel_permission", channel_id=channel_id, overwrite_id=overwrite_id
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Permission delete failed"))
+    return out
+
+
 @app.patch("/api/v1/guilds/{guild_id}")
 async def api_update_guild(guild_id: str, body: dict = Body(...)):
     out = await discord_tool(

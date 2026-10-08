@@ -1,7 +1,7 @@
 import { AlertCircle, Check, ExternalLink, RefreshCw, Server, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Guild } from "../lib/api";
+import { api, type Guild } from "../lib/api";
 import { addGuild, getFavorites, removeGuild } from "../lib/favorites";
 import { guildCategory, guildInfo } from "../lib/guildCatalog";
 import { useServerStore } from "../store/serverStore";
@@ -126,6 +126,36 @@ export default function Guilds() {
     navigate("/channels");
   };
 
+  const selectedGuild = guilds.find((g) => g.id === selectedGuildId) ?? null;
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+  const [editMsg, setEditMsg] = useState<string | null>(null);
+  const [editErr, setEditErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEditName(selectedGuild?.name ?? "");
+    setEditDescription("");
+    setEditMsg(null);
+    setEditErr(null);
+  }, [selectedGuildId]);
+
+  const handleGuildSave = async () => {
+    if (!selectedGuildId || !editName.trim()) return;
+    setEditBusy(true);
+    setEditErr(null);
+    setEditMsg(null);
+    try {
+      await api.updateGuild(selectedGuildId, { name: editName.trim(), description: editDescription });
+      setEditMsg("Server updated");
+      await loadGuilds();
+    } catch (e) {
+      setEditErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
   const renderSection = (title: string, list: Guild[]) => (
     <div>
       <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-3">
@@ -171,6 +201,40 @@ export default function Guilds() {
         <div className="flex items-center gap-3 p-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-200">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <p className="text-sm">{err}</p>
+        </div>
+      )}
+
+      {selectedGuild && (
+        <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 p-4 space-y-3">
+          <h2 className="text-white font-semibold text-sm">
+            Edit selected server — {selectedGuild.name}
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Server name"
+              className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200 min-w-[200px] flex-1"
+            />
+            <input
+              type="text"
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder="Description (blank = unchanged)"
+              className="rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-slate-200 min-w-[200px] flex-1"
+            />
+            <button
+              type="button"
+              onClick={handleGuildSave}
+              disabled={editBusy || !editName.trim()}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm disabled:opacity-50"
+            >
+              {editBusy ? "Saving..." : "Save"}
+            </button>
+          </div>
+          {editMsg && <p className="text-emerald-300 text-sm">{editMsg}</p>}
+          {editErr && <p className="text-xs text-red-400">{editErr}</p>}
         </div>
       )}
 

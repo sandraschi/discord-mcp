@@ -236,6 +236,26 @@ export interface RecentResponse {
   error?: string;
 }
 
+export interface ChannelOverwrite {
+  id: string;
+  type: number;
+  allow?: string;
+  deny?: string;
+}
+
+export interface ChannelDetailResponse {
+  success: boolean;
+  channel?: Channel & { permission_overwrites?: ChannelOverwrite[] };
+  error?: string;
+}
+
+export interface DMResponse {
+  success: boolean;
+  channel_id?: string;
+  recipient_id?: string;
+  error?: string;
+}
+
 export interface SendMessageResponse {
   success: boolean;
   message_id?: string;
@@ -434,6 +454,33 @@ export const api = {
     }),
   getGuildStats: (guildId: string) =>
     request<GuildStats>(`/api/v1/guilds/${guildId}/stats`),
+  updateGuild: (guildId: string, patch: { name?: string; description?: string }) =>
+    request<OkResponse>(`/api/v1/guilds/${guildId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  getChannel: (channelId: string) =>
+    request<ChannelDetailResponse>(`/api/v1/channels/${channelId}`),
+  setChannelPermission: (
+    channelId: string,
+    overwriteId: string,
+    allow: string,
+    deny: string,
+    overwriteType = 0,
+  ) =>
+    request<OkResponse>(`/api/v1/channels/${channelId}/permissions/${overwriteId}`, {
+      method: "PUT",
+      body: JSON.stringify({ allow, deny, overwrite_type: overwriteType }),
+    }),
+  deleteChannelPermission: (channelId: string, overwriteId: string) =>
+    request<OkResponse>(`/api/v1/channels/${channelId}/permissions/${overwriteId}`, {
+      method: "DELETE",
+    }),
+  createDM: (userId: string) =>
+    request<DMResponse>(`/api/v1/dm`, {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    }),
   getInvites: (guildId: string) =>
     request<InvitesResponse>(`/api/v1/guilds/${guildId}/invites`),
   createInvite: (channelId: string, maxAge = 86400, maxUses = 0) =>

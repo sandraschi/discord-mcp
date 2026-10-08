@@ -1,11 +1,16 @@
 import { AlertCircle, CheckCircle, Cpu, Send } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api, type Channel } from "../lib/api";
+import { api, type Channel, type Member } from "../lib/api";
 import { useGuildPicker } from "../lib/useGuildPicker";
 
 export default function SendMessage() {
   const { guilds, guildId, setGuildId, showPicker } = useGuildPicker();
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [channelsErr, setChannelsErr] = useState<string | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [membersErr, setMembersErr] = useState<string | null>(null);
+  const [mode, setMode] = useState<"channel" | "dm">("channel");
+  const [dmUserId, setDmUserId] = useState("");
   const [channelId, setChannelId] = useState("");
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,18 +20,51 @@ export default function SendMessage() {
 
   useEffect(() => {
     if (!guildId) return;
+    setChannelsErr(null);
     api
       .getChannels(guildId)
       .then((r) =>
         setChannels((r.channels ?? []).filter((c) => c.type === 0 || c.type === 5)),
       )
-      .catch(() => {});
+      .catch((e) => setChannelsErr(e instanceof Error ? e.message : String(e)));
+  }, [guildId]);
+
+  useEffect(() => {
+    if (!guildId) {
+      setMembers([]);
+      return;
+    }
+    setMembersErr(null);
+    api
+      .getMembers(guildId, 1000)
+      .then((r) => setMembers(r.members ?? []))
+      .catch((e) => setMembersErr(e instanceof Error ? e.message : String(e)));
   }, [guildId]);
 
   const channelName = channels.find((c) => c.id === channelId)?.name ?? channelId;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === "dm") {
+      if (!dmUserId || !content.trim()) return;
+      setLoading(true);
+      setErr(null);
+      setSuccess(null);
+      api
+        .createDM(dmUserId)
+        .then((r) => {
+          if (!r.channel_id) throw new Error("DM channel not returned");
+          return api.sendMessage(r.channel_id, content.trim());
+        })
+        .then(() => {
+          const who = members.find((m) => m.user_id === dmUserId)?.username ?? dmUserId;
+          setSuccess(`DM sent to ${who}.`);
+          setContent("");
+        })
+        .catch((err) => setErr(err instanceof Error ? err.message : String(err)))
+        .finally(() => setLoading(false));
+      return;
+    }
     if (!channelId.trim() || !content.trim()) return;
     setLoading(true);
     setErr(null);
@@ -42,7 +80,8 @@ export default function SendMessage() {
   };
 
   const handleAiDraft = () => {
-    if (!channelId.trim()) return;
+    const target = mode === "channel" ? channelId.trim() : dmUserId;
+    if (!target) return;
     setDrafting(true);
     setErr(null);
     api
@@ -81,10 +120,34 @@ export default function SendMessage() {
         </div>
       )}
 
+      {channelsErr && (
+        <p className="text-xs text-red-400">Channel list failed to load: {channelsErr}</p>
+      )}
+      {membersErr && (
+        <p className="text-xs text-red-400">Member list failed to load: {membersErr}</p>
+      )}
+
+      <div className="flex gap-2">
+        {(["channel", "dm"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={
+              mode === m
+                ? "px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium"
+                : "px-3 py-1.5 rounded-lg bg-slate-700/80 text-slate-300 text-sm hover:bg-slate-600"
+            }
+          >
+            {m === "channel" ? "Channel" : "Direct message"}
+          </button>
+        ))}
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="channel-id" className="block text-slate-300 text-sm font-medium mb-2">
-            Channel
+            {mode === "channel" ? "Channel" : "Recipient"}
           </label>
           <div className="flex gap-2">
             <div className="flex-1 flex flex-wrap gap-2">
@@ -102,25 +165,43 @@ export default function SendMessage() {
                   ))}
                 </select>
               )}
-              <select
-                id="channel-id"
-                value={channelId}
-                onChange={(e) => setChannelId(e.target.value)}
-                className="flex-1 min-w-[180px] rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-3 text-slate-200"
-                required
-              >
-                <option value="">Select channel…</option>
-                {channels.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    #{c.name}
-                  </option>
-                ))}
-              </select>
+              {mode === "channel" ? (
+                <select
+                  id="channel-id"
+                  value={channelId}
+                  onChange={(e) => setChannelId(e.target.value)}
+                  className="flex-1 min-w-[180px] rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-3 text-slate-200"
+                  required
+                >
+                  <option value="">Select channel…</option>
+                  {channels.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      #{c.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  id="channel-id"
+                  value={dmUserId}
+                  onChange={(e) => setDmUserId(e.target.value)}
+                  className="flex-1 min-w-[180px] rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-3 text-slate-200"
+                  required
+                >
+                  <option value="">Select member…</option>
+                  {members.map((m) => (
+                    <option key={m.user_id} value={m.user_id}>
+                      {m.username}
+                      {m.nick ? ` (${m.nick})` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <button
               type="button"
               onClick={handleAiDraft}
-              disabled={drafting || !channelId.trim()}
+              disabled={drafting || (mode === "channel" ? !channelId.trim() : !dmUserId)}
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-600/80 hover:bg-violet-500 disabled:opacity-50 text-white text-sm"
             >
               <Cpu className="w-4 h-4" />
