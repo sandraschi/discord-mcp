@@ -77,6 +77,7 @@ function MessageContent({
 export interface MessageActions {
   onDelete?: (m: Message) => void;
   onEdit?: (m: Message, content: string) => Promise<void> | void;
+  onPin?: (m: Message) => void;
   busyId?: string | null;
 }
 
@@ -100,6 +101,16 @@ function ItemActions({
           className="text-xs text-slate-500 hover:text-indigo-300 disabled:opacity-40"
         >
           Edit
+        </button>
+      )}
+      {actions.onPin && (
+        <button
+          type="button"
+          onClick={() => actions.onPin?.(m)}
+          disabled={busy}
+          className="text-xs text-slate-500 hover:text-amber-300 disabled:opacity-40"
+        >
+          Pin
         </button>
       )}
       {actions.onDelete && (
@@ -173,7 +184,7 @@ function ListItem({ m, actions }: { m: Message; actions?: MessageActions }) {
         {m.edited_timestamp && (
           <span className="text-slate-600 text-xs">(edited)</span>
         )}
-        {actions && (actions.onDelete || actions.onEdit) && !editing && (
+        {actions && (actions.onDelete || actions.onEdit || actions.onPin) && !editing && (
           <ItemActions m={m} actions={actions} onEditStart={() => setEditing(true)} />
         )}
       </div>
@@ -234,7 +245,7 @@ function CardItem({ m, actions }: { m: Message; actions?: MessageActions }) {
             {m.edited_timestamp && (
               <span className="text-slate-600 text-xs">(edited)</span>
             )}
-            {actions && (actions.onDelete || actions.onEdit) && !editing && (
+            {actions && (actions.onDelete || actions.onEdit || actions.onPin) && !editing && (
               <ItemActions m={m} actions={actions} onEditStart={() => setEditing(true)} />
             )}
           </div>

@@ -99,6 +99,7 @@ export interface Channel {
   name: string;
   type: number;
   parent_id?: string;
+  topic?: string;
 }
 
 export interface ChannelsResponse {
@@ -416,6 +417,21 @@ export const api = {
     }),
   deleteChannel: (channelId: string) =>
     request<OkResponse>(`/api/v1/channels/${channelId}`, { method: "DELETE" }),
+  updateChannel: (channelId: string, patch: { name?: string; topic?: string; slowmode?: number; nsfw?: boolean }) =>
+    request<OkResponse>(`/api/v1/channels/${channelId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  getPinnedMessages: (channelId: string) =>
+    request<MessagesResponse>(`/api/v1/channels/${channelId}/pins`),
+  pinMessage: (channelId: string, messageId: string) =>
+    request<OkResponse>(`/api/v1/channels/${channelId}/pins/${messageId}`, {
+      method: "PUT",
+    }),
+  unpinMessage: (channelId: string, messageId: string) =>
+    request<OkResponse>(`/api/v1/channels/${channelId}/pins/${messageId}`, {
+      method: "DELETE",
+    }),
   getGuildStats: (guildId: string) =>
     request<GuildStats>(`/api/v1/guilds/${guildId}/stats`),
   getInvites: (guildId: string) =>

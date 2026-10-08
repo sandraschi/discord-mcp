@@ -5,6 +5,7 @@ import {
   FileText,
   MessageCircle,
   MessageSquare,
+  Pin,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
@@ -43,6 +44,9 @@ export default function Messages() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
   const [threadsOpen, setThreadsOpen] = useState(false);
+  const [pins, setPins] = useState<Message[]>([]);
+  const [pinsLoading, setPinsLoading] = useState(false);
+  const [pinsOpen, setPinsOpen] = useState(false);
   const [exportMd, setExportMd] = useState<string | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -137,6 +141,44 @@ export default function Messages() {
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
       throw e;
+    } finally {
+      setModBusy(null);
+    }
+  };
+
+  const loadPins = () => {
+    if (!channelId.trim()) return;
+    setPinsLoading(true);
+    api
+      .getPinnedMessages(channelId.trim())
+      .then((r) => setPins(r.messages ?? []))
+      .catch((e) => setErr(e instanceof Error ? e.message : String(e)))
+      .finally(() => setPinsLoading(false));
+  };
+
+  const handlePinMessage = async (m: Message) => {
+    if (!channelId.trim()) return;
+    setModBusy(m.id);
+    setErr(null);
+    try {
+      await api.pinMessage(channelId.trim(), m.id);
+      setPins((prev) => (prev.some((x) => x.id === m.id) ? prev : [m, ...prev]));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setModBusy(null);
+    }
+  };
+
+  const handleUnpinMessage = async (m: Message) => {
+    if (!channelId.trim()) return;
+    setModBusy(m.id);
+    setErr(null);
+    try {
+      await api.unpinMessage(channelId.trim(), m.id);
+      setPins((prev) => prev.filter((x) => x.id !== m.id));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setModBusy(null);
     }
@@ -237,6 +279,18 @@ export default function Messages() {
           <MessageCircle className="w-4 h-4" />
           Threads
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            setPinsOpen(!pinsOpen);
+            if (!pinsOpen) loadPins();
+          }}
+          disabled={!channelId.trim()}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-600 disabled:opacity-50 text-slate-200 text-sm"
+        >
+          <Pin className="w-4 h-4" />
+          Pins{pins.length > 0 ? ` (${pins.length})` : ""}
+        </button>
         {messages.length > 0 && (
           <div className="flex gap-2">
             <button
@@ -304,6 +358,52 @@ export default function Messages() {
         </div>
       )}
 
+      {pinsOpen && channelId.trim() && (
+        <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 overflow-hidden">
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+            <span className="text-slate-400 text-sm">
+              Pinned messages in channel
+            </span>
+            <button
+              type="button"
+              onClick={loadPins}
+              disabled={pinsLoading}
+              className="text-indigo-400 hover:underline text-sm disabled:opacity-50"
+            >
+              {pinsLoading ? "Loading…" : "Refresh"}
+            </button>
+          </div>
+          <ul className="p-4 max-h-64 overflow-y-auto space-y-2">
+            {pins.length === 0 && !pinsLoading && (
+              <li className="text-slate-500 text-sm">
+                No pinned messages in this channel.
+              </li>
+            )}
+            {pins.map((m) => (
+              <li
+                key={m.id}
+                className="px-3 py-2 rounded-lg bg-white/5 text-sm flex items-start gap-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-amber-400/90">{m.author}</span>
+                  <p className="text-slate-300 break-words">
+                    {(m.content || "").slice(0, 200) || "—"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleUnpinMessage(m)}
+                  disabled={modBusy === m.id}
+                  className="text-xs text-slate-500 hover:text-red-300 shrink-0 disabled:opacity-40"
+                >
+                  {modBusy === m.id ? "…" : "Unpin"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {exportMd && (
         <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 overflow-hidden">
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
@@ -333,6 +433,7 @@ export default function Messages() {
               actions={{
                 onDelete: handleDeleteMessage,
                 onEdit: handleEditMessage,
+                onPin: handlePinMessage,
                 busyId: modBusy,
               }}
             />

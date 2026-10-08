@@ -101,6 +101,51 @@ export default function Channels() {
     }
   };
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editTopic, setEditTopic] = useState("");
+  const [editSlowmode, setEditSlowmode] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+  const [editErr, setEditErr] = useState<string | null>(null);
+
+  const startEdit = (c: Channel) => {
+    setEditingId(c.id);
+    setEditName(c.name);
+    setEditTopic(c.topic ?? "");
+    setEditSlowmode("");
+    setEditErr(null);
+  };
+
+  const handleEditSave = async () => {
+    if (!editingId || !editName.trim()) return;
+    setEditBusy(true);
+    setEditErr(null);
+    try {
+      const patch: { name?: string; topic?: string; slowmode?: number } = {
+        name: editName.trim(),
+        topic: editTopic,
+      };
+      if (editSlowmode.trim() !== "") {
+        const secs = Number(editSlowmode);
+        if (!Number.isFinite(secs) || secs < 0 || secs > 21600) {
+          setEditErr("Slowmode must be 0–21600 seconds");
+          setEditBusy(false);
+          return;
+        }
+        patch.slowmode = secs;
+      }
+      await api.updateChannel(editingId, patch);
+      setChannels((prev) =>
+        prev.map((c) => (c.id === editingId ? { ...c, name: editName.trim(), topic: editTopic } : c)),
+      );
+      setEditingId(null);
+    } catch (e) {
+      setEditErr(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
   const guildName = guilds.find((g) => g.id === selectedGuildId)?.name ?? "";
   const toggleChannelFavorite = (c: Channel) => {
     if (favoriteChannelIds.has(c.id)) {
@@ -219,6 +264,51 @@ export default function Channels() {
         </div>
       )}
 
+      {editingId && (
+        <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-200">Edit Channel</h3>
+            <button type="button" onClick={() => setEditingId(null)} className="text-slate-500 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="channel-name"
+              className="rounded-xl bg-[#1a1a1e] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px] flex-1"
+            />
+            <input
+              type="text"
+              value={editTopic}
+              onChange={(e) => setEditTopic(e.target.value)}
+              placeholder="Topic (optional)"
+              className="rounded-xl bg-[#1a1a1e] border border-white/10 px-4 py-2 text-slate-200 min-w-[200px] flex-1"
+            />
+            <input
+              type="number"
+              value={editSlowmode}
+              onChange={(e) => setEditSlowmode(e.target.value)}
+              placeholder="Slowmode s (blank = unchanged)"
+              min={0}
+              max={21600}
+              className="w-52 rounded-xl bg-[#1a1a1e] border border-white/10 px-3 py-2 text-slate-200 text-sm"
+            />
+            <button
+              type="button"
+              onClick={handleEditSave}
+              disabled={editBusy || !editName.trim()}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm disabled:opacity-50"
+            >
+              {editBusy ? "Saving..." : "Save"}
+            </button>
+          </div>
+          {editErr && <p className="text-xs text-red-400">{editErr}</p>}
+        </div>
+      )}
+
       {loading && (
         <div className="flex items-center gap-2 text-slate-400">
           <RefreshCw className="w-4 h-4 animate-spin" /> Loading channels…
@@ -275,7 +365,15 @@ export default function Channels() {
                   <td className="p-4 text-slate-400">
                     {CHANNEL_TYPE_NAMES[c.type] ?? c.type}
                   </td>
-                  <td className="p-4 text-right">
+                  <td className="p-4 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(c)}
+                      className="p-1.5 rounded-lg text-slate-600 hover:bg-white/10 hover:text-indigo-300 text-xs px-2"
+                      title="Edit channel"
+                    >
+                      Edit
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(c.id)}
