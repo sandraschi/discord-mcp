@@ -40,3 +40,9 @@ Update HANDOVER.md (root + mirror at
 `mcp-central-docs/projects/discord-mcp/HANDOVER.md`) with: what changed,
 how it was verified, what is still open, what was deliberately NOT done.
 `.bak` files are gitignored — clean them when the work is accepted.
+
+After ANY change to start procedures (start.ps1/bat, fleet-start.config.ps1,
+engine, starts/ wrapper): re-verify the click-chain from
+`mcp-central-docs/starts/discord-start.bat` to healthy ports, and keep the
+fleet parsers green (launcher audit L0, manifest sync DryRun). That bat is
+Sandra's entry point — it must work ALL the time, every time. No exceptions.
