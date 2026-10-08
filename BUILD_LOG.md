@@ -29,5 +29,13 @@ Running record for NSIS / packaging builds (fleet gate requirement).
   `D:\Dev\Tauri starts\discord-mcp-setup.lnk` now serves the fresh build.
 
 **Verify:** `tsc --noEmit` clean, `ruff` clean, `pytest` 90 passed.
-**Not done:** live browser click-through (needs backend restart via
+**Not done (v0.3.0 round):** live browser click-through (needs backend restart via
 start.bat); CUA NSIS smoke (`just cua-nsis-test`); version alignment.
+
+## 2026-10-08 — torch-free rebuild (RAG Ollama cut)
+- `just build-native` green (Rust cached 1m06s, makensis clean).
+- Installer `Discord MCP_0.1.0_x64-setup.exe`: **322.7MB → 124.9MB (-61%)**.
+  Frozen backend `discord-mcp-backend.exe`: 321.7MB → 123.2MB.
+  (torch/scipy/sklearn/transformers/tokenizers pruned via uv sync.)
+- Staged to `dist/` by the pipeline; Tauri link repointed via sync
+  (69/69 valid, README refreshed). No failures, no regressions.
