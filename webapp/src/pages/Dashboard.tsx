@@ -1,4 +1,4 @@
-import { Activity, ArrowRight, Cpu, Hash, MessageSquare, Server, Shield, Users, Webhook } from "lucide-react";
+import { Activity, ArrowRight, Cpu, Database, Hash, History, Link2, MessageSquare, Network, Server, Shield, Users, Webhook } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, type Health } from "../lib/api";
@@ -11,12 +11,70 @@ export default function Dashboard() {
   const guildErr = useServerStore((s) => s.error);
   const loadGuilds = useServerStore((s) => s.loadGuilds);
   const [err, setErr] = useState<string | null>(null);
+  const [memberCount, setMemberCount] = useState<number | null>(null);
+  const [onlineCount, setOnlineCount] = useState<number | null>(null);
+  const [channelCount, setChannelCount] = useState<number | null>(null);
+  const [intents, setIntents] = useState<{ guild_members: boolean; message_content: boolean } | null>(null);
+  const [ragChunks, setRagChunks] = useState<number | null>(null);
+  const [infoErr, setInfoErr] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (guilds.length === 0) loadGuilds().catch(() => {});
   }, [guilds.length, loadGuilds]);
+
+  // Per-server info cards + RAG. allSettled: partial data still renders,
+  // failures collapse into one visible note instead of silent blanks.
+  useEffect(() => {
+    if (!selectedGuildId) {
+      setMemberCount(null);
+      setOnlineCount(null);
+      setChannelCount(null);
+      setIntents(null);
+      return;
+    }
+    let active = true;
+    Promise.allSettled([
+      api.getGuildStats(selectedGuildId),
+      api.getChannels(selectedGuildId),
+      api.getIntents(),
+      api.getRagStats(),
+    ]).then(([stats, channels, intentRes, rag]) => {
+      if (!active) return;
+      const problems: string[] = [];
+      if (stats.status === "fulfilled") {
+        setMemberCount(stats.value.member_count ?? null);
+        setOnlineCount(stats.value.online_count ?? null);
+      } else {
+        setMemberCount(null);
+        setOnlineCount(null);
+        problems.push(`stats: ${stats.reason instanceof Error ? stats.reason.message : String(stats.reason)}`);
+      }
+      if (channels.status === "fulfilled") {
+        setChannelCount(channels.value.channels?.length ?? null);
+      } else {
+        setChannelCount(null);
+        problems.push(`channels: ${channels.reason instanceof Error ? channels.reason.message : String(channels.reason)}`);
+      }
+      if (intentRes.status === "fulfilled") {
+        setIntents(intentRes.value.intents ?? null);
+      } else {
+        setIntents(null);
+        problems.push(`intents: ${intentRes.reason instanceof Error ? intentRes.reason.message : String(intentRes.reason)}`);
+      }
+      if (rag.status === "fulfilled") {
+        setRagChunks(rag.value.total_chunks ?? null);
+      } else {
+        setRagChunks(null);
+        problems.push(`rag: ${rag.reason instanceof Error ? rag.reason.message : String(rag.reason)}`);
+      }
+      setInfoErr(problems.length > 0 ? problems.join(" · ") : null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [selectedGuildId]);
 
   useEffect(() => {
     let active = true;
@@ -100,8 +158,11 @@ export default function Dashboard() {
           <div className="flex flex-wrap gap-2 mt-4">
             {[
               { label: "Send Message", icon: MessageSquare, to: "/send" },
+              { label: "Recents", icon: History, to: "/recents" },
+              { label: "Server tree", icon: Network, to: "/tree" },
               { label: "Create Channel", icon: Hash, to: "/channels" },
-              { label: "View Guilds", icon: Server, to: "/guilds" },
+              { label: "Invites", icon: Link2, to: "/invites" },
+              { label: "RAG search", icon: Database, to: "/rag" },
             ].map(({ label, icon: Icon, to }) => (
               <button
                 key={to}
@@ -167,7 +228,65 @@ export default function Dashboard() {
             {samp?.sampling_model ?? "—"} @ {samp?.sampling_base_url ?? "—"}
           </p>
         </div>
+
+        <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <Users className="w-5 h-5 text-sky-400" />
+            <h2 className="text-sm font-bold text-slate-200">Members</h2>
+          </div>
+          <p className="text-2xl font-bold text-white">
+            {memberCount ?? "—"}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            {onlineCount !== null ? `${onlineCount} online` : selectedGuildId ? "No data" : "Select a server"}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <Hash className="w-5 h-5 text-amber-400" />
+            <h2 className="text-sm font-bold text-slate-200">Channels</h2>
+          </div>
+          <p className="text-2xl font-bold text-white">
+            {channelCount ?? "—"}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            {selectedGuildId ? "Text, voice, categories" : "Select a server"}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <Shield className="w-5 h-5 text-emerald-400" />
+            <h2 className="text-sm font-bold text-slate-200">Intents</h2>
+          </div>
+          <p className="text-2xl font-bold text-white">
+            {intents === null ? "—" : intents.guild_members && intents.message_content ? "Full" : "Partial"}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            {intents === null
+              ? "No data"
+              : `Members: ${intents.guild_members ? "on" : "OFF"} · Content: ${intents.message_content ? "on" : "OFF"}`}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <Database className="w-5 h-5 text-violet-400" />
+            <h2 className="text-sm font-bold text-slate-200">RAG chunks</h2>
+          </div>
+          <p className="text-2xl font-bold text-white">
+            {ragChunks ?? "—"}
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            Indexed Discord messages
+          </p>
+        </div>
       </div>
+
+      {infoErr && (
+        <p className="text-xs text-amber-400/90">Partial dashboard data: {infoErr}</p>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 backdrop-blur-sm p-5">

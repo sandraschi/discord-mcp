@@ -14,6 +14,8 @@ export function useGuildPicker() {
   const guildId = useServerStore((s) => s.selectedGuildId);
   const selectGuild = useServerStore((s) => s.selectGuild);
   const loadGuilds = useServerStore((s) => s.loadGuilds);
+  const guildsLoading = useServerStore((s) => s.loading);
+  const guildsError = useServerStore((s) => s.error);
 
   useEffect(() => {
     if (guilds.length === 0) loadGuilds();
@@ -21,5 +23,5 @@ export function useGuildPicker() {
 
   const showPicker = guilds.length > 1;
 
-  return { guilds, guildId, setGuildId: selectGuild, showPicker };
+  return { guilds, guildId, setGuildId: selectGuild, showPicker, guildsLoading, guildsError };
 }

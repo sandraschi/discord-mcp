@@ -1,7 +1,9 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { api, type Health } from "@/lib/api";
+import { useServerStore } from "@/store/serverStore";
 import LoggerPanel, { type LogEntry } from "./LoggerPanel";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
@@ -54,6 +56,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
   const [health, setHealth] = useState<Health | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  // Global server-list status: every page inherits this banner, so a dead
+  // backend or bad token is never a silent blank page.
+  const guilds = useServerStore((s) => s.guilds);
+  const guildsLoading = useServerStore((s) => s.loading);
+  const guildsError = useServerStore((s) => s.error);
+  const loadGuilds = useServerStore((s) => s.loadGuilds);
+
+  useEffect(() => {
+    if (guilds.length === 0 && !guildsLoading && !guildsError) loadGuilds();
+  }, [guilds.length, guildsLoading, guildsError, loadGuilds]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +122,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               subtitle={copy.subtitle}
               health={health}
             />
+            {guildsLoading && guilds.length === 0 && (
+              <p className="text-slate-400 text-sm mb-4">Loading servers…</p>
+            )}
+            {guildsError && (
+              <div className="flex items-center gap-3 p-4 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-200 mb-4">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p className="text-sm flex-1">
+                  Servers unavailable: {guildsError} — check the backend
+                  (start.ps1, port 10756) and DISCORD_TOKEN.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => loadGuilds()}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-600/30 hover:bg-red-600/50 text-red-200 text-xs"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Retry
+                </button>
+              </div>
+            )}
             {children}
           </div>
         </div>

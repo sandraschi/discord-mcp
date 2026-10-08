@@ -9,7 +9,7 @@ import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 _STARTED = datetime.now(UTC)
 _SHUTTING_DOWN = False
@@ -984,6 +984,21 @@ async def api_members(guild_id: str, limit: int = 100):
     return out
 
 
+@app.get("/api/v1/guilds/{guild_id}/recent")
+async def api_recent(guild_id: str, limit_channels: int = 10, per_channel: int = 3, offset: int = 0):
+    out = await discord_tool(
+        ctx=None,
+        operation="recent",
+        guild_id=guild_id,
+        max_channels=limit_channels,
+        per_channel=per_channel,
+        channel_offset=offset,
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Recent unavailable"))
+    return out
+
+
 class SendMessageBody(BaseModel):
     content: str
 
@@ -1000,6 +1015,17 @@ class RagIngestBody(BaseModel):
 class RagQueryBody(BaseModel):
     query_text: str
     top_k: int = 10
+    table_name: str = "discord_messages"
+    channel_id: str | None = None
+    guild_id: str | None = None
+    min_score: float = 0.25
+
+
+class RagSweepBody(BaseModel):
+    channel_id: str | None = None
+    guild_id: str | None = None
+    limit: int = 100
+    full_reindex: bool = False
     table_name: str = "discord_messages"
 
 
@@ -1448,12 +1474,216 @@ async def api_audit_log(guild_id: str, limit: int = 50, user_id: str | None = No
 # --- RAG ---
 
 
+# --- RAG & Local Depot ---
+
+_rag_jobs: dict[str, dict[str, Any]] = {}
+_rag_tasks: set[asyncio.Task] = set()
+
+
 class RagSyncBody(BaseModel):
     channel_id: str
     limit: int = 100
     guild_id: str = ""
     guild_name: str = ""
     channel_name: str = ""
+
+
+class DepotSyncBody(BaseModel):
+    channel_id: str
+    guild_id: str = "dm"
+    guild_name: str = ""
+    channel_name: str = ""
+    limit: int = 100
+
+
+async def _run_discord_rag_sweep_job(
+    job_id: str,
+    channel_id: str | None,
+    guild_id: str | None,
+    limit: int,
+    full_reindex: bool,
+    table_name: str,
+) -> None:
+    from .depot import export_messages_to_depot
+    from .rag import ingest_messages
+
+    _rag_jobs[job_id]["status"] = "running"
+    _rag_jobs[job_id]["phase"] = "discovering_channels"
+
+    try:
+        target_channels: list[dict[str, Any]] = []
+        guild_name = ""
+
+        if channel_id:
+            # Single channel
+            ch_info = await discord_tool(operation="get_channel", channel_id=channel_id)
+            ch_name = ch_info.get("channel", {}).get("name", "") if ch_info.get("success") else ""
+            target_channels.append({"id": channel_id, "name": ch_name})
+        elif guild_id:
+            # Whole guild
+            chans_res = await discord_tool(operation="list_channels", guild_id=guild_id)
+            if chans_res.get("success"):
+                for c in chans_res.get("channels", []):
+                    if c.get("type") in (0, 5):  # text or announcement
+                        target_channels.append({"id": c["id"], "name": c.get("name", "")})
+            g_info = await discord_tool(operation="get_guild_stats", guild_id=guild_id)
+            if g_info.get("success"):
+                guild_name = g_info.get("name", "")
+
+        if not target_channels:
+            _rag_jobs[job_id]["status"] = "error"
+            _rag_jobs[job_id]["phase"] = "failed"
+            _rag_jobs[job_id]["error"] = "No eligible channels found to sweep."
+            return
+
+        _rag_jobs[job_id]["total"] = len(target_channels)
+        total_ingested = 0
+        total_skipped = 0
+
+        for idx, ch in enumerate(target_channels):
+            cid = ch["id"]
+            cname = ch["name"]
+            _rag_jobs[job_id]["current"] = idx + 1
+            _rag_jobs[job_id]["phase"] = f"fetching #{cname or cid}"
+
+            fetch_res = await discord_tool(operation="get_messages", channel_id=cid, limit=limit)
+            if fetch_res.get("success"):
+                msgs = fetch_res.get("messages") or []
+
+                # Mirror into local depot
+                export_messages_to_depot(
+                    messages=msgs,
+                    channel_id=cid,
+                    guild_id=guild_id or "dm",
+                    guild_name=guild_name,
+                    channel_name=cname,
+                )
+
+                _rag_jobs[job_id]["phase"] = f"embedding #{cname or cid}"
+                res = await asyncio.to_thread(
+                    ingest_messages,
+                    msgs,
+                    guild_name=guild_name,
+                    channel_name=cname,
+                    channel_id=cid,
+                    guild_id=guild_id or "",
+                    table_name=table_name,
+                    skip_existing=not full_reindex,
+                    overwrite=full_reindex and idx == 0,
+                )
+                total_ingested += res.get("ingested", 0)
+                total_skipped += res.get("skipped", 0)
+                _rag_jobs[job_id]["chunks"] = total_ingested
+
+        _rag_jobs[job_id]["status"] = "complete"
+        _rag_jobs[job_id]["phase"] = "completed"
+        _rag_jobs[job_id]["chunks"] = total_ingested
+        _rag_jobs[job_id]["skipped"] = total_skipped
+        _rag_jobs[job_id]["message"] = f"Swept {len(target_channels)} channel(s): {total_ingested} indexed, {total_skipped} skipped."
+    except Exception as exc:
+        logger.exception("Discord RAG sweep job failed")
+        _rag_jobs[job_id]["status"] = "error"
+        _rag_jobs[job_id]["phase"] = "failed"
+        _rag_jobs[job_id]["error"] = str(exc)
+
+
+@app.post("/api/rag/sweep")
+@app.post("/api/v1/rag/sweep")
+@app.post("/api/reindex")
+async def api_rag_sweep(body: RagSweepBody = Body(default=RagSweepBody())):
+    """Standard asynchronous background sweep trigger compliant with RAG_OPERATIONS_STANDARD.md."""
+    import time
+    import uuid
+
+    job_id = str(uuid.uuid4())
+    _rag_jobs[job_id] = {
+        "job_id": job_id,
+        "status": "queued",
+        "phase": "queued",
+        "channel_id": body.channel_id,
+        "guild_id": body.guild_id,
+        "limit": body.limit,
+        "full_reindex": body.full_reindex,
+        "current": 0,
+        "total": 0,
+        "chunks": 0,
+        "skipped": 0,
+        "start_time": time.time(),
+        "error": None,
+        "message": None,
+    }
+
+    task = asyncio.create_task(
+        _run_discord_rag_sweep_job(
+            job_id=job_id,
+            channel_id=body.channel_id,
+            guild_id=body.guild_id,
+            limit=body.limit,
+            full_reindex=body.full_reindex,
+            table_name=body.table_name,
+        )
+    )
+    _rag_tasks.add(task)
+    task.add_done_callback(_rag_tasks.discard)
+
+    return {
+        "success": True,
+        "job_id": job_id,
+        "status": "queued",
+        "message": f"RAG sweep initiated (job_id={job_id})",
+    }
+
+
+@app.get("/api/rag/status/{job_id}")
+@app.get("/api/v1/rag/status/{job_id}")
+@app.get("/api/reindex/{job_id}")
+async def api_rag_status(job_id: str):
+    """Poll status and running statistics of active RAG sweep."""
+    import time
+
+    if job_id not in _rag_jobs:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    job = _rag_jobs[job_id]
+    elapsed = time.time() - job["start_time"]
+    return {
+        "job_id": job["job_id"],
+        "status": job["status"],
+        "phase": job["phase"],
+        "chunks": job.get("chunks", 0),
+        "skipped": job.get("skipped", 0),
+        "current": job.get("current", 0),
+        "total": job.get("total", 0),
+        "elapsed_seconds": round(elapsed, 1),
+        "error": job.get("error"),
+        "message": job.get("message"),
+    }
+
+
+@app.get("/api/rag/stats")
+@app.get("/api/v1/rag/stats")
+async def api_rag_stats():
+    """Retrieve vector store telemetry, hardware acceleration status, and chunk metrics."""
+    from .rag import get_rag_telemetry
+
+    return get_rag_telemetry()
+
+
+@app.post("/api/v1/rag/query")
+@app.post("/api/rag/search")
+async def api_rag_query(body: RagQueryBody = Body(...)):
+    out = await discord_tool(
+        ctx=None,
+        operation="rag_query",
+        query_text=body.query_text,
+        top_k=body.top_k,
+        table_name=body.table_name,
+        channel_id=body.channel_id,
+        guild_id=body.guild_id,
+    )
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "RAG query failed"))
+    return out
 
 
 @app.post("/api/v1/rag/ingest")
@@ -1473,29 +1703,24 @@ async def api_rag_ingest(body: RagIngestBody = Body(...)):
     return out
 
 
-@app.post("/api/v1/rag/query")
-async def api_rag_query(body: RagQueryBody = Body(...)):
-    out = await discord_tool(
-        ctx=None,
-        operation="rag_query",
-        query_text=body.query_text,
-        top_k=body.top_k,
-        table_name=body.table_name,
-    )
-    if not out.get("success"):
-        raise HTTPException(status_code=502, detail=out.get("error", "RAG query failed"))
-    return out
-
-
 @app.post("/api/v1/rag/sync")
 async def api_rag_sync(body: RagSyncBody = Body(...)):
     out = await discord_tool(ctx=None, operation="get_messages", channel_id=body.channel_id, limit=body.limit)
     if not out.get("success"):
         raise HTTPException(status_code=502, detail=out.get("error", "Failed to fetch messages"))
 
+    from .depot import export_messages_to_depot
     from .rag import ingest_messages
 
     msgs = out.get("messages") or []
+    export_messages_to_depot(
+        messages=msgs,
+        channel_id=body.channel_id,
+        guild_id=body.guild_id or "dm",
+        guild_name=body.guild_name,
+        channel_name=body.channel_name,
+    )
+
     loop = asyncio.get_event_loop()
     ingest_res = await loop.run_in_executor(
         None,
@@ -1511,24 +1736,39 @@ async def api_rag_sync(body: RagSyncBody = Body(...)):
     return ingest_res
 
 
-@app.get("/api/v1/rag/stats")
-async def api_rag_stats():
-    try:
-        from .rag import _get_db
+# --- Local Depot Endpoints ---
 
-        db = _get_db()
-        tables = db.table_names()
-        stats = []
-        for t in tables:
-            tbl = db.open_table(t)
-            try:
-                count = tbl.count_rows()
-            except Exception:
-                count = 0
-            stats.append({"table_name": t, "count": count})
-        return {"success": True, "tables": stats}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+
+@app.get("/api/rag/depot/list")
+@app.get("/api/v1/rag/depot/list")
+async def api_depot_list():
+    """List local mirrored channel archives in the depot."""
+    from .depot import list_depot_inventory
+
+    return {"success": True, "inventory": list_depot_inventory()}
+
+
+@app.post("/api/rag/depot/sync")
+@app.post("/api/v1/rag/depot/sync")
+async def api_depot_sync(body: DepotSyncBody = Body(...)):
+    """Fetch messages from a channel and mirror them to local JSONL depot."""
+    from .depot import export_messages_to_depot
+
+    out = await discord_tool(ctx=None, operation="get_messages", channel_id=body.channel_id, limit=body.limit)
+    if not out.get("success"):
+        raise HTTPException(status_code=502, detail=out.get("error", "Failed to fetch channel messages"))
+
+    msgs = out.get("messages") or []
+    res = export_messages_to_depot(
+        messages=msgs,
+        channel_id=body.channel_id,
+        guild_id=body.guild_id,
+        guild_name=body.guild_name,
+        channel_name=body.channel_name,
+    )
+    if not res.get("success"):
+        raise HTTPException(status_code=500, detail=res.get("error", "Depot export failed"))
+    return res
 
 
 # --- Comms watcher (inbound → webhook / auto-reply) ---

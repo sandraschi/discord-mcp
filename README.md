@@ -9,7 +9,7 @@
   <a href="https://github.com/PrefectHQ/fastmcp"><img src="https://img.shields.io/badge/FastMCP-3.2-7c5cfc?style=flat-square" alt="FastMCP"></a>
 </p>
 
-Connect your Discord bot to MCP clients — list servers, send messages, moderate members, search message history with RAG, and run agentic workflows from Cursor or Claude Desktop.
+Connect your Discord bot to MCP clients -- list servers, send messages, moderate members, search message history with RAG, and run agentic workflows from Cursor or Claude Desktop.
 
 **v0.3.0** · 43 operations · FastMCP 3.2 · Comms lane · [Releases](https://github.com/sandraschi/discord-mcp/releases)
 
@@ -28,12 +28,12 @@ Connect your Discord bot to MCP clients — list servers, send messages, moderat
 
 ## Features
 
-- **43 Discord operations** in one portmanteau tool — messaging, moderation, roles, webhooks, audit log, channel management (create/update/move, pins, threads), RAG
-- **Fleet web dashboard** — servers catalog with global selection, channel tree, decoded audit log, servers, channels, messages, agentic chat, LanceDB search (ports **10756** / **10757**)
-- **Agentic workflow** — describe a goal; server uses sampling + tools (SEP-1577); model auto-resolves to an installed Ollama model
-- **Dual transport** — stdio for IDE hosts, streamable HTTP at `/mcp` for remote clients
-- **Built-in safety** — anti-spam rate limits, Discord 429 auto-retry, bind localhost only
-- **Bundled skills & prompts** — moderation playbook, RAG workflow, ops guides
+- **43 Discord operations** in one portmanteau tool -- messaging, moderation, roles, webhooks, audit log, channel management (create/update/move, pins, threads), RAG
+- **Fleet web dashboard** -- servers catalog with global selection, channel tree, decoded audit log, servers, channels, messages, agentic chat, LanceDB search (ports **10756** / **10757**)
+- **Agentic workflow** -- describe a goal; server uses sampling + tools (SEP-1577); model auto-resolves to an installed Ollama model
+- **Dual transport** -- stdio for IDE hosts, streamable HTTP at `/mcp` for remote clients
+- **Built-in safety** -- anti-spam rate limits, Discord 429 auto-retry, bind localhost only
+- **Bundled skills & prompts** -- moderation playbook, RAG workflow, ops guides
 
 ---
 
@@ -100,7 +100,7 @@ Fleet central mirror: [mcp-central-docs/projects/discord-mcp](https://github.com
 
 - **Windows** (primary; fleet dev target) or macOS/Linux with Python 3.12+
 - **[uv](https://docs.astral.sh/uv/)** for Python deps · **Node 20+** for the webapp
-- **Discord bot token** — free at [Discord Developer Portal](https://discord.com/developers/applications)
+- **Discord bot token** -- free at [Discord Developer Portal](https://discord.com/developers/applications)
 - Optional: [Ollama](https://ollama.com) for local agentic sampling when the MCP host has no LLM
 
 > **Server limit:** Unverified bots can join **10 servers max**. To raise the cap, verify your bot
@@ -131,12 +131,12 @@ Discord allows bots to use LLMs for moderation, search, summaries, and community
 - Agentic workflows that call tools and generate replies
 
 **Not allowed (can get your bot suspended):**
-- **Scraping** user messages for external AI training data — Discord prohibits crawling for model training
+- **Scraping** user messages for external AI training data -- Discord prohibits crawling for model training
 - **Impersonating** users with AI-generated content mimicking real people
 - **Spamming** with LLM-generated flood messages (our rate limits prevent this)
 - **Selling access** to Discord data through AI services
 
-**Bottom line:** LLM as a tool to serve your community = fine. Discord as a free training data source = not fine. discord-mcp is designed for the former — all operations are scoped to channels the bot can see, with rate limits that prevent abuse.
+**Bottom line:** LLM as a tool to serve your community = fine. Discord as a free training data source = not fine. discord-mcp is designed for the former -- all operations are scoped to channels the bot can see, with rate limits that prevent abuse.
 
 ---
 
@@ -161,9 +161,17 @@ These limits are checked **before** the request reaches Discord. If you hit one,
 
 Discord itself enforces per-route rate limits (HTTP 429 with `retry_after`). The server automatically retries up to **5 times** with exponential backoff, respecting Discord's `Retry-After` header. If all retries are exhausted, a structured error is returned.
 
-### Why both?
+## Fleet Crossconnects (Companions)
 
-The server-side limits prevent your bot from getting **suspended** by Discord's abuse detection. They're conservative by default — tune them up for private servers, or tighten them for public bots.
+`discord-mcp` works completely standalone. You can optionally connect it with companion servers in the `sandraschi` fleet to unlock extended features:
+
+| Companion Server | Feature Unlocked | Status | Setup |
+|---|---|---|---|
+| [`fleet-public-relations-mcp`](https://github.com/sandraschi/fleet-public-relations-mcp) | inbound-thread-triage, draft-approval-pipeline | Optional | [Install Guide](https://github.com/sandraschi/fleet-public-relations-mcp#quick-install) |
+| [`speech-mcp`](https://github.com/sandraschi/speech-mcp) | voice-tts-alerts, task-completion-readout | Optional | [Install Guide](https://github.com/sandraschi/speech-mcp#quick-install) |
+| [`fleet-agent-mcp`](https://github.com/sandraschi/fleet-agent-mcp) | fritz-bot-operator, voice-bus-bridge | Optional | [Install Guide](https://github.com/sandraschi/fleet-agent-mcp#quick-install) |
+
+> **Self-Contained Companions**: Fleet companions operate independently. Installing companions does not trigger transitive dependency chains.
 
 ---
 

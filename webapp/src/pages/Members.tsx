@@ -14,6 +14,8 @@ export default function Members() {
     guildId: selectedGuildId,
     setGuildId: setSelectedGuildId,
     showPicker,
+    guildsLoading,
+    guildsError,
   } = useGuildPicker();
   const [members, setMembers] = useState<Member[]>([]);
   const [limit, setLimit] = useState(100);
@@ -64,6 +66,17 @@ export default function Members() {
           </p>
         </div>
       </div>
+
+      {guildsLoading && !selectedGuildId && (
+        <p className="text-slate-400">Loading servers…</p>
+      )}
+
+      {guildsError && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-200">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <p className="text-sm">Servers unavailable: {guildsError}</p>
+        </div>
+      )}
 
       {err && (
         <div className="flex items-center gap-3 p-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-200">

@@ -79,40 +79,65 @@ function countChannels(roots: TreeNode[]): number {
 }
 
 export default function ServerTree() {
-  const { guilds, guildId, setGuildId, showPicker } = useGuildPicker();
+  const { guilds, guildId, setGuildId, showPicker, guildsLoading, guildsError } = useGuildPicker();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [threadsByChannel, setThreadsByChannel] = useState<Map<string, Thread[]>>(new Map());
+  const [threadsLoading, setThreadsLoading] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [asciiView, setAsciiView] = useState(false);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // Threads load lazily on expand (see toggle). The old code fanned out one
+  // getChannelThreads call per text channel in a single Promise.all (~150 on
+  // large guilds) — guaranteed Discord 429 cascade with multi-minute hangs.
+  const fetchThreads = useCallback(async (channelId: string) => {
+    let skip = false;
+    setThreadsByChannel((prev) => {
+      if (prev.has(channelId)) skip = true;
+      return prev;
+    });
+    if (skip) return;
+    setThreadsLoading((prev) => new Set(prev).add(channelId));
+    try {
+      const tr = await api.getChannelThreads(channelId);
+      setThreadsByChannel((prev) => {
+        const next = new Map(prev);
+        next.set(channelId, tr.threads ?? []);
+        return next;
+      });
+    } catch {
+      // Thread fetch failed (archived/403) — cache empty so we don't retry.
+      setThreadsByChannel((prev) => {
+        if (prev.has(channelId)) return prev;
+        const next = new Map(prev);
+        next.set(channelId, []);
+        return next;
+      });
+    } finally {
+      setThreadsLoading((prev) => {
+        const next = new Set(prev);
+        next.delete(channelId);
+        return next;
+      });
+    }
+  }, []);
+
   const load = useCallback(() => {
     if (!guildId) {
       setChannels([]);
+      setThreadsByChannel(new Map());
       return;
     }
     setLoading(true);
     setErr(null);
     api
       .getChannels(guildId)
-      .then(async (r) => {
-        const list = r.channels ?? [];
-        setChannels(list);
-        // fetch active threads for every text/announcement channel in parallel
-        const textChannels = list.filter((c) => c.type === 0 || c.type === 5);
-        const results = await Promise.all(
-          textChannels.map(async (c) => {
-            try {
-              const tr = await api.getChannelThreads(c.id);
-              return [c.id, tr.threads ?? []] as const;
-            } catch {
-              return [c.id, [] as Thread[]] as const;
-            }
-          }),
-        );
-        setThreadsByChannel(new Map(results));
+      .then((r) => {
+        setChannels(r.channels ?? []);
+        // Render the tree immediately; threads fill in per-channel on expand.
+        setThreadsByChannel(new Map());
       })
       .catch((e: Error) => setErr(e.message))
       .finally(() => setLoading(false));
@@ -124,13 +149,18 @@ export default function ServerTree() {
 
   const roots = buildTree(channels, threadsByChannel);
 
-  const toggle = (id: string) => {
+  const toggle = (id: string, type?: number) => {
+    const expanding = collapsed.has(id);
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+    // Lazy-load threads when expanding a text/announcement channel.
+    if (expanding && (type === 0 || type === 5)) {
+      void fetchThreads(id);
+    }
   };
 
   const copyAscii = async () => {
@@ -158,7 +188,7 @@ export default function ServerTree() {
           {hasChildren ? (
             <button
               type="button"
-              onClick={() => toggle(node.channel.id)}
+              onClick={() => toggle(node.channel.id, node.channel.type)}
               className="text-slate-400 hover:text-white shrink-0"
               title={isCollapsed ? "Expand" : "Collapse"}
             >
@@ -181,6 +211,9 @@ export default function ServerTree() {
             }`}
           />
           <span className="text-sm text-slate-200">#{node.channel.name}</span>
+          {threadsLoading.has(node.channel.id) && !isCollapsed && (
+            <span className="text-xs text-slate-500">loading threads…</span>
+          )}
           {node.threads.length > 0 && (
             <span className="text-xs text-slate-500">
               {node.threads.length} thread{node.threads.length !== 1 ? "s" : ""}
@@ -256,6 +289,17 @@ export default function ServerTree() {
           </button>
         </div>
       </div>
+
+      {guildsLoading && !guildId && (
+        <p className="text-slate-400">Loading servers…</p>
+      )}
+
+      {guildsError && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-200">
+          <AlertCircle className="w-5 h-5" />
+          <p className="text-sm">Servers unavailable: {guildsError}</p>
+        </div>
+      )}
 
       {err && (
         <div className="flex items-center gap-3 p-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-200">

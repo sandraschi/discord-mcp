@@ -42,8 +42,8 @@ function loadHistory(): Message[] {
   try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
 }
 
-function saveHistory(messages: Message[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100))); } catch {}
+function saveHistory(messages: Message[]): boolean {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100))); return true; } catch { return false; }
 }
 
 function loadPersonality(): string {
@@ -61,9 +61,15 @@ export default function Chat() {
   const [activeSkill, setActiveSkill] = useState<string | null>(null);
 
   const [ollamaStatus, setOllamaStatus] = useState<"probing" | "online" | "offline">("probing");
+  const [persistWarn, setPersistWarn] = useState<string | null>(() => {
+    try { localStorage.getItem(STORAGE_KEY); return null; }
+    catch { return "Browser storage blocked — chat history won't persist this session."; }
+  });
+  const [skillsErr, setSkillsErr] = useState<string | null>(null);
+  const pollFail = useRef(0);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-  useEffect(() => { saveHistory(messages); }, [messages]);
+  useEffect(() => { if (!saveHistory(messages)) setPersistWarn("Browser storage unavailable — chat history won't persist this session."); }, [messages]);
   useEffect(() => { localStorage.setItem(PERSONALITY_KEY, personalityId); }, [personalityId]);
 
   // Load skills and probe Ollama on mount
@@ -73,7 +79,7 @@ export default function Chat() {
       if (names.length > 0) {
         setActiveSkill(names[0]);
       }
-    }).catch(() => {});
+    }).catch((e) => setSkillsErr(e instanceof Error ? e.message : String(e)));
 
     api.getHealth().then((h) => {
       setOllamaStatus(h.sampling?.server_side_llm_ready ? "online" : "offline");
@@ -103,8 +109,17 @@ export default function Chat() {
             setActiveRunId(null);
             setLoading(false);
           }
+          pollFail.current = 0;
         })
-        .catch(() => {});
+        .catch((e) => {
+          // Transient poll blips self-heal on the next tick; only speak up
+          // after 5 consecutive failures so a dead run can't spin silently.
+          pollFail.current += 1;
+          if (pollFail.current === 5) {
+            const msg = e instanceof Error ? e.message : "Request failed";
+            setMessages((prev) => [...prev, { role: "assistant", content: `Live run update failing (${msg}) — will keep retrying.` }]);
+          }
+        });
     }, 1000);
     return () => { active = false; clearInterval(interval); };
   }, [activeRunId]);
@@ -145,7 +160,9 @@ export default function Chat() {
         }
         return copy;
       });
-    }).catch(() => {});
+    }).catch((e) => {
+      setMessages((prev) => [...prev, { role: "assistant", content: `Approval request failed: ${e instanceof Error ? e.message : "Request failed"}` }]);
+    });
   };
 
   const handleExport = () => {
@@ -181,6 +198,7 @@ export default function Chat() {
         </div>
         <div className="flex items-center gap-3">
           {activeSkill && <span className="text-[10px] text-indigo-400 bg-indigo-950/30 px-2 py-0.5 rounded font-mono">skill:{activeSkill}</span>}
+          {skillsErr && !activeSkill && <span className="text-[10px] text-amber-400/90 font-mono" title={skillsErr}>skills unavailable</span>}
           <select
             data-testid="personality-select"
             value={personalityId}
@@ -203,6 +221,10 @@ export default function Chat() {
           </button>
         </div>
       </div>
+
+      {persistWarn && (
+        <p className="text-xs text-amber-400/90">{persistWarn}</p>
+      )}
 
       <div className="space-y-6 bg-slate-950/20 rounded-2xl border border-white/5 p-4 min-h-[40vh] max-h-[60vh] overflow-y-auto" data-testid="chat-messages">
         {messages.length === 0 ? (

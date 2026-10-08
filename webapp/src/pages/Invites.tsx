@@ -16,12 +16,15 @@ export default function Invites() {
     guildId: selectedGuildId,
     setGuildId: setSelectedGuildId,
     showPicker,
+    guildsLoading,
+    guildsError,
   } = useGuildPicker();
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [channelsErr, setChannelsErr] = useState<string | null>(null);
   const [invChannelId, setInvChannelId] = useState("");
   const [invMaxAge, setInvMaxAge] = useState(86400);
   const [invMaxUses, setInvMaxUses] = useState(0);
@@ -31,9 +34,10 @@ export default function Invites() {
   const [copied, setCopied] = useState(false);
 
   const fetchChannels = (guildId: string) => {
+    setChannelsErr(null);
     api.getChannels(guildId).then((r: ChannelsResponse) => {
       setChannels(r.channels?.filter((c) => c.type === 0) ?? []);
-    }).catch(() => {});
+    }).catch((e) => setChannelsErr(e instanceof Error ? e.message : String(e)));
   };
 
   useEffect(() => {
@@ -102,6 +106,17 @@ export default function Invites() {
           </p>
         </div>
       </div>
+
+      {guildsLoading && !selectedGuildId && (
+        <p className="text-slate-400">Loading servers…</p>
+      )}
+
+      {guildsError && (
+        <div className="flex items-center gap-3 p-4 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-200">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <p className="text-sm">Servers unavailable: {guildsError}</p>
+        </div>
+      )}
 
       {err && (
         <div className="flex items-center gap-3 p-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-200">
@@ -199,6 +214,7 @@ export default function Invites() {
               {invCreating ? "Creating..." : "Create"}
             </button>
           </div>
+          {channelsErr && <p className="text-xs text-red-400">Channel list failed to load: {channelsErr}</p>}
           {invCreateErr && <p className="text-xs text-red-400">{invCreateErr}</p>}
         </div>
       )}

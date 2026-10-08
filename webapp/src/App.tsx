@@ -17,6 +17,7 @@ import Logs from "./pages/Logs";
 import Members from "./pages/Members";
 import Messages from "./pages/Messages";
 import Rag from "./pages/Rag";
+import Recents from "./pages/Recents";
 import Rules from "./pages/Rules";
 import Bridge from "./pages/Bridge";
 import Roles from "./pages/Roles";
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/webhooks" element={<WebhooksPage />} />
         <Route path="/audit-log" element={<AuditLog />} />
         <Route path="/messages" element={<Messages />} />
+        <Route path="/recents" element={<Recents />} />
         <Route path="/send" element={<SendMessage />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/comms" element={<Comms />} />

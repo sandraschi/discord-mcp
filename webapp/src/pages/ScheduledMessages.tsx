@@ -29,6 +29,8 @@ export default function ScheduledMessages() {
 
   const { guilds, guildId, setGuildId, showPicker } = useGuildPicker();
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [channelsErr, setChannelsErr] = useState<string | null>(null);
+  const [cancelErr, setCancelErr] = useState<string | null>(null);
   const [channelId, setChannelId] = useState("");
   const [content, setContent] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
@@ -36,7 +38,12 @@ export default function ScheduledMessages() {
   const [createErr, setCreateErr] = useState<string | null>(null);
 
   useEffect(() => {
-    if (guildId) api.getChannels(guildId).then((r) => setChannels(r.channels?.filter((c: Channel) => c.type === 0) ?? [])).catch(() => {});
+    if (guildId) {
+      setChannelsErr(null);
+      api.getChannels(guildId)
+        .then((r) => setChannels(r.channels?.filter((c: Channel) => c.type === 0) ?? []))
+        .catch((e) => setChannelsErr(e instanceof Error ? e.message : String(e)));
+    }
   }, [guildId]);
 
   const load = useCallback(() => {
@@ -68,10 +75,18 @@ export default function ScheduledMessages() {
   };
 
   const handleCancel = async (id: number) => {
+    setCancelErr(null);
     try {
       const r = await fetch(`/api/v1/scheduled-messages/${id}`, { method: "DELETE" });
-      if (r.ok) setMessages((prev) => prev.filter((m) => m.id !== id));
-    } catch {}
+      if (r.ok) {
+        setMessages((prev) => prev.filter((m) => m.id !== id));
+      } else {
+        const body = await r.json().catch(() => ({}));
+        setCancelErr(`Cancel #${id} failed: ${body.detail || `HTTP ${r.status}`}`);
+      }
+    } catch (e) {
+      setCancelErr(`Cancel #${id} failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 
   const statusBadge = (s: string) => {
@@ -93,6 +108,8 @@ export default function ScheduledMessages() {
       </div>
 
       {err && <div className="flex items-center gap-3 p-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-200"><AlertCircle className="w-5 h-5" /><p className="text-sm">{err}</p></div>}
+      {cancelErr && <div className="flex items-center gap-3 p-4 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-200"><AlertCircle className="w-5 h-5" /><p className="text-sm">{cancelErr}</p></div>}
+      {channelsErr && <p className="text-xs text-red-400">Channel list failed to load: {channelsErr}</p>}
 
       {showCreate && (
         <div className="rounded-2xl border border-white/10 bg-[#0f0f12]/80 p-5 space-y-3">

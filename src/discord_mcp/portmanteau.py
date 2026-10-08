@@ -9,7 +9,8 @@ import httpx
 from fastmcp import Context
 from pydantic import Field
 
-from .rag import ingest_messages, rag_query_async
+from .depot import export_messages_to_depot, list_depot_inventory
+from .rag import get_rag_telemetry, ingest_messages, rag_query_async
 from .rate_limit import (
     check_create_channel,
     check_create_invite,
@@ -24,7 +25,9 @@ from .sanitize import sanitize_text, wrap_message_list, wrap_rag_hits
 logger = logging.getLogger("discord-mcp.portmanteau")
 
 DISCORD_API = "https://discord.com/api/v10"
-_DISCORD_HTTP_TIMEOUT = 120.0
+# Per-request timeout: 120s hung the webapp ServerTree page (150 parallel
+# thread fetches x 120s + 429 retries = multi-minute spinner). 20s fails fast.
+_DISCORD_HTTP_TIMEOUT = 20.0
 _DISCORD_429_RETRIES = 5
 
 
@@ -225,6 +228,10 @@ async def discord_tool(
                 "get_audit_log",
                 "rag_ingest",
                 "rag_query",
+                "rag_sweep",
+                "rag_stats",
+                "depot_sync",
+                "depot_list",
             ],
         ),
     ] = "list_guilds",
@@ -334,6 +341,9 @@ async def discord_tool(
     table_name: Annotated[str, Field(description="LanceDB table name for RAG operations.")] = "discord_messages",
     query_text: Annotated[str, Field(description="Semantic search query text for rag_query.")] = "",
     top_k: Annotated[int, Field(description="Number of top results for rag_query (1-100).", ge=1, le=100)] = 10,
+    max_channels: Annotated[int, Field(description="Max channels for recent (1-25).", ge=1, le=25)] = 10,
+    per_channel: Annotated[int, Field(description="Messages per channel for recent (1-10).", ge=1, le=10)] = 3,
+    channel_offset: Annotated[int, Field(description="Channel offset for recent pagination.", ge=0)] = 0,
 ) -> dict:
     """Unified Discord portmanteau tool - single entry point for all Discord REST API operations.
 
@@ -347,7 +357,7 @@ async def discord_tool(
     kick_member, timeout_member, list_bans, create_dm, list_roles, create_role, delete_role,
     assign_role, remove_role, set_channel_permission, delete_channel_permission, list_webhooks,
     create_webhook, delete_webhook, send_webhook, list_emojis, delete_emoji, list_stickers,
-    get_audit_log, rag_ingest, rag_query.
+    get_audit_log, rag_ingest, rag_query, recent.
 
     ## Roles and channel access (full coverage)
     Role membership (create_role, assign_role, remove_role, delete_role) controls what a role
@@ -396,6 +406,10 @@ async def discord_tool(
             if not guild_id:
                 return {"success": False, "error": "list_channels requires guild_id."}
             return await _list_channels(guild_id)
+        if op_lower == "recent":
+            if not guild_id:
+                return {"success": False, "error": "recent requires guild_id."}
+            return await _get_recent(guild_id, max_channels, per_channel, channel_offset)
         if op_lower == "send_message":
             if not channel_id or not content:
                 return {"success": False, "error": "send_message requires channel_id and content."}
@@ -510,10 +524,80 @@ async def discord_tool(
                 query_text.strip(),
                 top_k=max(1, min(100, top_k)),
                 table_name=table_name or "discord_messages",
+                channel_id=channel_id or None,
+                guild_id=guild_id or None,
             )
             if ctx and out.get("success") and out.get("hits"):
                 out["hits"] = wrap_rag_hits(out["hits"])
             return out
+        if op_lower == "rag_sweep":
+            # Multi-channel or single-channel incremental sweep
+            target_channels = []
+            if channel_id:
+                target_channels.append(channel_id)
+            elif guild_id:
+                chans_res = await _list_channels(guild_id)
+                if chans_res.get("success"):
+                    for c in chans_res.get("channels", []):
+                        if c.get("type") in (0, 5):  # Text or announcement
+                            target_channels.append(c["id"])
+            if not target_channels:
+                return {"success": False, "error": "rag_sweep requires channel_id or guild_id."}
+
+            total_ingested = 0
+            total_skipped = 0
+            for idx, ch_id in enumerate(target_channels):
+                out = await _get_messages(ch_id, limit)
+                if out.get("success"):
+                    msgs = out.get("messages") or []
+                    # Also archive into local depot
+                    export_messages_to_depot(
+                        messages=msgs,
+                        channel_id=ch_id,
+                        guild_id=guild_id or "dm",
+                        guild_name=guild_name or "",
+                        channel_name=channel_name or "",
+                    )
+                    res = await asyncio.to_thread(
+                        ingest_messages,
+                        msgs,
+                        guild_name=guild_name or "",
+                        channel_name=channel_name or "",
+                        channel_id=ch_id,
+                        guild_id=guild_id or "",
+                        table_name=table_name or "discord_messages",
+                        skip_existing=True,
+                    )
+                    total_ingested += res.get("ingested", 0)
+                    total_skipped += res.get("skipped", 0)
+                if ctx and hasattr(ctx, "report_progress"):
+                    await ctx.report_progress(idx + 1, len(target_channels))
+
+            return {
+                "success": True,
+                "operation": "rag_sweep",
+                "channels_swept": len(target_channels),
+                "total_ingested": total_ingested,
+                "total_skipped": total_skipped,
+            }
+        if op_lower == "rag_stats":
+            return get_rag_telemetry(table_name=table_name or "discord_messages")
+        if op_lower == "depot_sync":
+            if not channel_id:
+                return {"success": False, "error": "depot_sync requires channel_id."}
+            out = await _get_messages(channel_id, limit)
+            if not out.get("success"):
+                return {"success": False, "error": out.get("error", "get_messages failed")}
+            msgs = out.get("messages") or []
+            return export_messages_to_depot(
+                messages=msgs,
+                channel_id=channel_id,
+                guild_id=guild_id or "dm",
+                guild_name=guild_name or "",
+                channel_name=channel_name or "",
+            )
+        if op_lower == "depot_list":
+            return {"success": True, "inventory": list_depot_inventory()}
         if op_lower == "edit_message":
             if not channel_id or not message_id or not content:
                 return {"success": False, "error": "edit_message requires channel_id, message_id, and content."}
@@ -664,10 +748,50 @@ async def _list_channels(guild_id: str) -> dict:
                 "name": c.get("name", ""),
                 "type": c.get("type", 0),
                 "parent_id": c.get("parent_id"),
+                "last_message_id": c.get("last_message_id"),
             }
             for c in data
         ]
         return {"success": True, "channels": channels, "count": len(channels)}
+
+
+async def _get_recent(guild_id: str, max_channels: int = 10, per_channel: int = 3, offset: int = 0) -> dict:
+    """Latest messages per recently-active channel (one list + N reads, semaphore-capped).
+
+    Channels sort by last_message_id desc (snowflakes are chronological).
+    Per-channel message fetches run under a semaphore(5) so a 178-channel
+    guild can't reproduce the ServerTree fan-out that hung the webapp.
+    """
+    max_channels = max(1, min(25, max_channels))
+    per_channel = max(1, min(10, per_channel))
+    offset = max(0, offset)
+    out = await _list_channels(guild_id)
+    if not out.get("success"):
+        return out
+    channels = [c for c in out.get("channels", []) if c.get("type") in (0, 5)]
+    channels.sort(key=lambda c: c.get("last_message_id") or "0", reverse=True)
+    page = channels[offset : offset + max_channels]
+    sem = asyncio.Semaphore(5)
+
+    async def _one(c: dict) -> dict:
+        async with sem:
+            msgs = await _get_messages(c["id"], per_channel)
+        return {
+            "channel_id": c["id"],
+            "channel_name": c.get("name", ""),
+            "last_message_id": c.get("last_message_id"),
+            "messages": msgs.get("messages", []) if msgs.get("success") else [],
+            "error": None if msgs.get("success") else msgs.get("error"),
+        }
+
+    items = await asyncio.gather(*(_one(c) for c in page))
+    return {
+        "success": True,
+        "items": list(items),
+        "count": len(items),
+        "total_channels": len(channels),
+        "offset": offset,
+    }
 
 
 async def _send_message(channel_id: str, content: str) -> dict:

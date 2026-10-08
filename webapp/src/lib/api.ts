@@ -218,6 +218,23 @@ export interface ThreadsResponse {
   error?: string;
 }
 
+export interface RecentChannel {
+  channel_id: string;
+  channel_name: string;
+  last_message_id?: string | null;
+  messages: Message[];
+  error?: string | null;
+}
+
+export interface RecentResponse {
+  success: boolean;
+  items?: RecentChannel[];
+  count?: number;
+  total_channels?: number;
+  offset?: number;
+  error?: string;
+}
+
 export interface SendMessageResponse {
   success: boolean;
   message_id?: string;
@@ -241,6 +258,7 @@ export interface RagHit {
   guild_name?: string;
   channel_name?: string;
   distance?: number;
+  score?: number;
 }
 
 export interface RagQueryResponse {
@@ -421,6 +439,10 @@ export const api = {
     ),
   getChannelThreads: (channelId: string) =>
     request<ThreadsResponse>(`/api/v1/channels/${channelId}/threads`),
+  getRecent: (guildId: string, limitChannels = 10, perChannel = 3, offset = 0) =>
+    request<RecentResponse>(
+      `/api/v1/guilds/${guildId}/recent?limit_channels=${limitChannels}&per_channel=${perChannel}&offset=${offset}`,
+    ),
   sendMessage: (channelId: string, content: string) =>
     request<SendMessageResponse>(`/api/v1/channels/${channelId}/messages`, {
       method: "POST",
@@ -449,6 +471,8 @@ export const api = {
     query_text: string;
     top_k?: number;
     table_name?: string;
+    channel_id?: string;
+    guild_id?: string;
   }) =>
     request<RagQueryResponse>("/api/v1/rag/query", {
       method: "POST",
@@ -456,6 +480,8 @@ export const api = {
         query_text: body.query_text,
         top_k: body.top_k ?? 10,
         table_name: body.table_name ?? "discord_messages",
+        channel_id: body.channel_id,
+        guild_id: body.guild_id,
       }),
     }),
   ragSync: (body: {
@@ -475,8 +501,37 @@ export const api = {
         channel_name: body.channel_name ?? "",
       }),
     }),
+  triggerRagSweep: (body: {
+    channel_id?: string;
+    guild_id?: string;
+    limit?: number;
+    full_reindex?: boolean;
+    table_name?: string;
+  }) =>
+    request<RagSweepInitiateResponse>("/api/rag/sweep", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getRagStatus: (jobId: string) =>
+    request<RagSweepStatusResponse>(`/api/rag/status/${encodeURIComponent(jobId)}`),
   getRagStats: () =>
-    request<RagStatsResponse>("/api/v1/rag/stats"),
+    request<RagStatsResponse>("/api/rag/stats"),
+  getDepotInventory: () =>
+    request<DepotInventoryResponse>("/api/rag/depot/list"),
+  syncDepot: (body: {
+    channel_id: string;
+    guild_id?: string;
+    guild_name?: string;
+    channel_name?: string;
+    limit?: number;
+  }) =>
+    request<{ success: boolean; appended: number; total: number; error?: string }>(
+      "/api/rag/depot/sync",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    ),
   agentic: (goal: string) =>
     request<AgenticResponse>("/api/v1/agentic", {
       method: "POST",
@@ -591,7 +646,49 @@ export interface RagStatsTable {
 
 export interface RagStatsResponse {
   success: boolean;
+  total_chunks?: number;
+  storage_mb?: number;
+  embedding_model?: string;
+  gpu_accelerated?: boolean;
   tables?: RagStatsTable[];
+  error?: string;
+}
+
+export interface RagSweepInitiateResponse {
+  success: boolean;
+  job_id: string;
+  status: string;
+  message?: string;
+  error?: string;
+}
+
+export interface RagSweepStatusResponse {
+  job_id: string;
+  status: "queued" | "running" | "complete" | "error";
+  phase: string;
+  chunks: number;
+  skipped: number;
+  current: number;
+  total: number;
+  elapsed_seconds: number;
+  error?: string | null;
+  message?: string | null;
+}
+
+export interface DepotInventoryItem {
+  guild_id: string;
+  channel_id: string;
+  guild_name: string;
+  channel_name: string;
+  message_count: number;
+  size_kb: number;
+  file_path: string;
+  last_timestamp: string;
+}
+
+export interface DepotInventoryResponse {
+  success: boolean;
+  inventory: DepotInventoryItem[];
   error?: string;
 }
 
