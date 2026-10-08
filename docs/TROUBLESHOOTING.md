@@ -22,8 +22,25 @@
 
 ## Port 10756 or 10757 already in use
 
-**Cause:** Another fleet server or stale process  
-**Fix:** Stop the other service or change `PORT` in `.env`. Fleet: clear ports 10700–11000 if you use central kill scripts.
+**Cause:** Stale process, or the `discord-mcp` NSSM service holding :10756
+**Fix:** Double-click `mcp-central-docs/starts/discord-start.bat` (one UAC
+click) — the orchestrator restarts the service with fresh-PID proof and
+recycles vite. Never `Stop-Process` the service child; NSSM owns it.
+
+## Backend serves stale code after edits
+
+**Cause:** :10756 is owned by the NSSM service — killing the Python process
+either fails (access denied) or respawns the same old code
+**Fix:** Same start bat as above. Watch the elevated window for
+`Backend fresh on :10756 (PID old -> new)` plus `Backend health OK`.
+
+## Server tree spins forever
+
+**Cause (fixed 2026-10-08):** the page fanned out one thread-fetch per text
+channel (~150 parallel) into Discord 429s with a 120s HTTP timeout
+**Fix:** Update — threads now load lazily per expanded channel, timeout is
+20s. If it still hangs, check `GET /api/v1/health` and the global red
+server banner (Retry button).
 
 ## Rate limited by discord-mcp
 

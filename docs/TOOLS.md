@@ -10,7 +10,7 @@
 
 ## `discord(operation=…)`
 
-Single entry point for **43 operations**. Returns `{"success": bool, …}` with operation-specific fields or `error` on failure.
+Single entry point for **47 operations**. Returns `{"success": bool, …}` with operation-specific fields or `error` on failure.
 
 ### Discovery
 
@@ -26,6 +26,8 @@ Single entry point for **43 operations**. Returns `{"success": bool, …}` with 
 | `get_guild_stats` | `guild_id` |
 | `list_active_threads` | `channel_id` |
 | `create_thread` | `channel_id`, `name`, optional `message_id` (thread from a message) |
+| `recent` | `guild_id`, `max_channels` (1–25), `per_channel` (1–10), `channel_offset` — latest messages per recently-active channel (semaphore-capped, powers the Recents page) |
+| `export_messages` | `channel_id`, `limit` — channel history as Notion/Obsidian-ready markdown |
 
 ### Messaging
 
@@ -70,6 +72,8 @@ Single entry point for **43 operations**. Returns `{"success": bool, …}` with 
 | `delete_role` | `guild_id`, `role_id` |
 | `assign_role` | `guild_id`, `user_id`, `role_id` |
 | `remove_role` | `guild_id`, `user_id`, `role_id` |
+| `set_channel_permission` | `channel_id`, `overwrite_id`, `overwrite_type` (0=role, 1=member), `allow`/`deny` as comma flag names or bitfield |
+| `delete_channel_permission` | `channel_id`, `overwrite_id` |
 
 ### Webhooks
 

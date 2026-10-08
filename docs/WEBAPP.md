@@ -6,16 +6,18 @@
 
 | Page | Route | Purpose |
 |------|-------|---------|
-| Dashboard | `/dashboard` | Health, server overview, activity |
+| Dashboard | `/dashboard` | Health, KPIs (members, channels, intents, RAG), quick actions |
 | Agentic Chat | `/chat` | Sampling-based agentic workflow UI |
-| Servers | `/guilds` | Catalog: "My servers" vs "Following", curated descriptions, **global server selection** (persisted; every page follows) |
-| Server tree | `/tree` | Category → channel → thread hierarchy, collapsible, copyable ASCII view |
-| Channels | `/channels` | Channel list per server |
+| Servers | `/guilds` | Catalog: "My servers" vs "Following", curated descriptions, rename server, **global server selection** (persisted; every page follows) |
+| Server tree | `/tree` | Category → channel → thread hierarchy, collapsible, copyable ASCII view (threads load lazily on expand) |
+| Channels | `/channels` | Channel list + create/edit (name, topic, slowmode)/delete |
 | Audit log | `/audit-log` | Decoded moderation/admin history (action labels, actor/target names, timestamps) |
 | Invites | `/invites` | Create, list, revoke invites |
-| Members | `/members` | Member list (needs GUILD_MEMBERS intent) |
-| Messages | `/messages` | Read channel history |
-| Send message | `/send` | Post to a channel |
+| Members | `/members` | Member list + timeout presets (needs GUILD_MEMBERS intent) |
+| Messages | `/messages` | Read channel history; edit/delete/pin messages; pinned panel |
+| Recents | `/recents` | Latest messages per recently-active channel, paginated cards |
+| Send message | `/send` | Post to a channel or DM a member |
+| Roles | `/roles` | Roles + channel permission overwrites (allow/inherit/deny matrix) |
 | Favorites | `/favorites` | Saved server/channel shortcuts |
 | Trawl | `/trawl` | Bulk message fetch |
 | RAG (LanceDB) | `/rag` | Ingest and semantic search |
@@ -26,7 +28,10 @@
 | Settings | `/settings` | Token, sampling, rate limit display |
 | Help | `/help` | In-app help |
 
-Launch full stack: `.\start.ps1` from repo root (or `just serve`).
+Launch full stack: double-click `mcp-central-docs/starts/discord-start.bat`
+(or repo-root `start.bat`) and approve one UAC prompt — restarts the
+`discord-mcp` NSSM backend with fresh-PID proof, recycles vite, verifies
+health on :10756/:10757. Never taskkill the service child.
 
 ## REST API
 
@@ -51,9 +56,12 @@ Launch full stack: `.\start.ps1` from repo root (or `just serve`).
 | GET | `/api/v1/guilds/{guild_id}/stats` |
 | GET | `/api/v1/guilds/{guild_id}/invites` |
 | GET | `/api/v1/guilds/{guild_id}/members` |
+| GET | `/api/v1/guilds/{guild_id}/recent` (latest per active channel: `limit_channels`, `per_channel`, `offset`) |
 | PATCH | `/api/v1/guilds/{guild_id}` (rename, description) |
-| GET | `/api/v1/channels/{channel_id}` |
+| GET | `/api/v1/channels/{channel_id}` (includes `permission_overwrites`) |
 | PATCH | `/api/v1/channels/{channel_id}` (rename, topic, move to category, position, nsfw, slowmode) |
+| PUT | `/api/v1/channels/{channel_id}/permissions/{overwrite_id}` (`allow`/`deny` bitfields or flag names, `overwrite_type`) |
+| DELETE | `/api/v1/channels/{channel_id}/permissions/{overwrite_id}` |
 
 ### Messages & DMs
 

@@ -1,5 +1,23 @@
 
 ## [Unreleased]
+### Added (2026-10-08)
+- **Webapp gap fill A–D: every backend tool now has UI.** P1 moderation:
+  message edit/delete (list + card views, inline editor), member timeout
+  presets (10m/1h/24h/7d), invite revoke. P2: channel edit dialog
+  (name/topic/slowmode), pins panel + per-message Pin/Unpin, webhook
+  test-fire, EmbedBuilder silent channel-load fixed. P3: NEW
+  `PUT/DELETE /api/v1/channels/{id}/permissions/{overwrite_id}` routes +
+  Roles overwrites matrix (4 flags × allow/inherit/deny, live table), DM
+  mode on Send, guild rename. P4: live prompt descriptions on Tools
+  (`/api/v1/meta.prompt_descriptions`, old-backend compatible).
+- **New `recent` portmanteau op + `GET /api/v1/guilds/{id}/recent`** (latest
+  messages per active channel, semaphore-5, powers the new Recents page).
+- **Launcher orchestrator:** repo `start.ps1` self-elevates (one UAC),
+  restarts the NSSM service with fresh-PID proof, recycles vite, gates on
+  health; `mcp-central-docs/starts/discord-start.bat` funnels to it;
+  config declares `NssmService` + `Kind='nssm'`. Webapp hangs fixed
+  (ServerTree lazy threads, Discord timeout 120s→20s, global error banner,
+  no silent failures on 8 pages).
 ### Added (2026-10-02)
 - **`show_messages_card(channel_id, since="today", limit=50)`**: Prefab cards for channel messages,
   oldest first. `since` accepts `today` (midnight Europe/Vienna), `all`, `YYYY-MM-DD` or an ISO
