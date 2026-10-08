@@ -12,7 +12,6 @@ dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.23.0",
     "lancedb>=0.4.0",
-    "sentence-transformers>=3.0.0",
     "pyarrow>=14.0.0",
     "prefab-ui>=0.14.0",
     "tzdata>=2024.1; sys_platform == 'win32'",

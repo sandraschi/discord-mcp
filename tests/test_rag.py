@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import sys
 import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from discord_mcp import rag
 from discord_mcp.depot import export_messages_to_depot, list_depot_inventory, load_messages_from_depot
 from discord_mcp.rag import get_rag_telemetry, ingest_messages, rag_query_async
 
@@ -98,3 +100,80 @@ def test_get_rag_telemetry(mock_db):
     assert stats["total_chunks"] == 142
     assert "embedding_model" in stats
     assert "gpu_accelerated" in stats
+
+
+def _ollama_model():
+    return rag._OllamaEmbeddings("http://localhost:11434", "nomic-embed-text")
+
+
+def test_ollama_embed_batches_and_parses():
+    model = _ollama_model()
+    calls = []
+
+    def fake_post(url, json=None, timeout=None):
+        calls.append((url, json))
+        n = len(json["input"])
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {"embeddings": [[0.5] * 768 for _ in range(n)]}
+        return resp
+
+    with patch.object(rag.httpx, "post", side_effect=fake_post):
+        vecs = model.embed(["a"] * 60)
+
+    assert len(vecs) == 60
+    assert len(vecs[0]) == 768
+    assert len(calls) == 2  # 50 + 10 chunking
+    assert calls[0][0].endswith("/api/embed")
+    assert calls[0][1]["model"] == "nomic-embed-text"
+
+
+def test_ollama_unreachable_is_actionable():
+    model = _ollama_model()
+
+    def boom(url, json=None, timeout=None):
+        raise ConnectionError("refused")
+
+    with patch.object(rag.httpx, "post", side_effect=boom):
+        with pytest.raises(RuntimeError, match="Ollama not reachable"):
+            model.embed(["hello"])
+
+
+def test_ingest_dim_mismatch_guides_rebuild():
+    import pyarrow as pa
+
+    tbl = MagicMock()
+    tbl.schema = pa.schema(
+        [
+            pa.field("vector", pa.list_(pa.float32(), 384)),
+            pa.field("message_id", pa.string()),
+        ]
+    )
+    db = MagicMock()
+    db.list_tables.return_value = ["discord_messages"]
+    db.open_table.return_value = tbl
+
+    fake_model = MagicMock()
+    with (
+        patch("discord_mcp.rag._get_embedding_model", return_value=fake_model),
+        patch("discord_mcp.rag._get_db", return_value=db),
+        patch("discord_mcp.rag._provider_dim", return_value=768),
+        patch.object(rag, "_model_name", "ollama/nomic-embed-text"),
+    ):
+        out = ingest_messages(
+            [{"id": "m1", "author": "a", "content": "hi", "timestamp": "t"}],
+            channel_id="c1",
+            skip_existing=False,
+        )
+    assert out["success"] is False
+    assert "overwrite=true" in out["error"]
+    db.create_table.assert_not_called()
+
+
+def test_local_fallback_without_torch_stack_is_actionable(monkeypatch):
+    monkeypatch.setitem(sys.modules, "sentence_transformers", None)
+    monkeypatch.setitem(sys.modules, "fastembed", None)
+    monkeypatch.setattr(rag, "_model", None)
+    monkeypatch.setenv("RAG_EMBEDDINGS", "local")
+    with pytest.raises(RuntimeError, match="sentence-transformers"):
+        rag._get_embedding_model()

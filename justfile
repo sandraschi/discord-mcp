@@ -11,7 +11,7 @@ default:
 
 # Install all dependencies (Python + webapp)
 bootstrap:
-    Set-Location '{{justfile_directory()}}'; uv sync; Set-Location '{{justfile_directory()}}\webapp'; npm install
+    Set-Location '{{justfile_directory()}}'; uv sync --extra dev; Set-Location '{{justfile_directory()}}\webapp'; npm install
 
 # --- Serve ---
 
