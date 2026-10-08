@@ -15,6 +15,8 @@ export default defineConfig({
     port: 10756,
     cwd: "../",
     timeout: 30000,
-    reuseExistingServer: false,
+    // The backend normally runs as the Windows NSSM service on :10756.
+    // Reuse it instead of fighting for the port (and never kill it).
+    reuseExistingServer: true,
   },
 });

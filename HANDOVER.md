@@ -77,3 +77,13 @@ pyproject (torch/scipy/sklearn/transformers pruned via uv sync).
 bootstrap fixed (`uv sync --extra dev` — plain sync drops pytest).
 Existing 384d tables need one `overwrite=true` re-ingest. Installer
 still 322MB until next NSIS rebuild. 2 commits pushed.
+
+## 2026-10-08 (night): click-through 47/47 green
+- Backend was 1 commit stale; restarted via sc (user DACL, no UAC):
+  PID 229356 → 236584, health ok, meta current.
+- Extended e2e spec (30 page loads + Recents/Roles/DM/KPI/Pins/prompts
+  assertions + 3 API wiring tests); playwright.config now
+  `reuseExistingServer: true`. `npx playwright test`: 47 passed (22.8s).
+- WARNING: `just e2e` wrapper fights NSSM (binds :10756, kills :10756
+  and :10757). Service survived via respawn; vite relaunched manually.
+  Use direct `npx playwright test` until the wrapper learns NSSM.
