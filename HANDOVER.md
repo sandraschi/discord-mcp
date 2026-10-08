@@ -44,3 +44,16 @@ service still has pre-patch code — proven by old tool schema).
 - No commit of `.bak` files (gitignored) — clean with
   `Get-ChildItem -Recurse -Filter "*.bak" | Remove-Item` once accepted.
 - No changes to `mcp-central-docs` engine (out of scope, noted).
+
+## 2026-10-08 follow-up: two launchers, engine didn't know NSSM
+Symptom: clicking `mcp-central-docs/starts/discord-start.bat` failed with
+"port still held by PID, set Backend.Kind='nssm' or Backend.NssmService".
+Root cause: that wrapper drove `webapp/start.ps1` directly and the fleet
+config declared `Backend.Kind='uvicorn'` while :10756 is owned by the
+`discord-mcp` NSSM service — engine correctly refused to orphan-kill and
+had no service name to restart. The repo-root `start.ps1` orchestrator was
+never in the loop.
+Fix: config now declares `NssmService='discord-mcp'` + `Kind='nssm'`
+(canonical repair-script schema); wrapper funnels to repo `start.bat`
+(single orchestrator: UAC → sc stop/start with fresh-PID verify → frontend
+→ health gates). Next step unchanged: click it, approve UAC once.

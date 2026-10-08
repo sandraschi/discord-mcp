@@ -6,8 +6,12 @@
     FrontendPort = 10757
     HealthPath   = '/api/v1/health'
     WebRoot      = 'webapp'
+    # Backend runs as the Windows NSSM service 'discord-mcp' (NOT a dev process).
+    # Required so the fleet engine restarts the service instead of trying to
+    # orphan-kill its port holder (see repair-fleet-unified-start.ps1 schema).
+    NssmService  = 'discord-mcp'
     Backend = @{
-        Kind          = 'uvicorn'
+        Kind          = 'nssm'
         UvicornTarget = 'discord_mcp.server:app'
         SyncExtras    = @('dev')
         SyncOnStart  = $true
