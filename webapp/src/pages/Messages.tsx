@@ -9,7 +9,7 @@ import {
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import MessageViewer, { type ViewMode } from "../components/MessageViewer";
-import { api, type Channel, type MessagesResponse, type Thread } from "../lib/api";
+import { api, type Channel, type Message, type MessagesResponse, type Thread } from "../lib/api";
 import { exportCSV, exportJSON } from "../lib/export";
 import { useGuildPicker } from "../lib/useGuildPicker";
 
@@ -20,17 +20,20 @@ export default function Messages() {
   const stateChannelId =
     (location.state as { channelId?: string } | null)?.channelId ?? "";
   const [channelId, setChannelId] = useState(stateChannelId);
+  const [channelsErr, setChannelsErr] = useState<string | null>(null);
+  const [modBusy, setModBusy] = useState<string | null>(null);
   useEffect(() => {
     if (stateChannelId) setChannelId(stateChannelId);
   }, [stateChannelId]);
   useEffect(() => {
     if (!guildId) return;
+    setChannelsErr(null);
     api
       .getChannels(guildId)
       .then((r) =>
         setChannels((r.channels ?? []).filter((c) => c.type === 0 || c.type === 5)),
       )
-      .catch(() => {});
+      .catch((e) => setChannelsErr(e instanceof Error ? e.message : String(e)));
   }, [guildId]);
   const [limit, setLimit] = useState(50);
   const [data, setData] = useState<MessagesResponse | null>(null);
@@ -94,6 +97,51 @@ export default function Messages() {
       .finally(() => setLoading(false));
   };
 
+  const handleDeleteMessage = async (m: Message) => {
+    if (!channelId.trim()) return;
+    if (!window.confirm(`Delete message from ${m.author}?`)) return;
+    setModBusy(m.id);
+    setErr(null);
+    try {
+      await api.deleteMessage(channelId.trim(), m.id);
+      setData((prev) =>
+        prev
+          ? { ...prev, messages: (prev.messages ?? []).filter((x) => x.id !== m.id) }
+          : prev,
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setModBusy(null);
+    }
+  };
+
+  const handleEditMessage = async (m: Message, content: string) => {
+    if (!channelId.trim() || !content.trim()) return;
+    setModBusy(m.id);
+    setErr(null);
+    try {
+      await api.editMessage(channelId.trim(), m.id, content);
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              messages: (prev.messages ?? []).map((x) =>
+                x.id === m.id
+                  ? { ...x, content, edited_timestamp: new Date().toISOString() }
+                  : x,
+              ),
+            }
+          : prev,
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      throw e;
+    } finally {
+      setModBusy(null);
+    }
+  };
+
   const handleExportCSV = () => {
     const rows = messages.map((m) => ({
       id: m.id,
@@ -128,6 +176,9 @@ export default function Messages() {
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <p className="text-sm">{err}</p>
         </div>
+      )}
+      {channelsErr && (
+        <p className="text-xs text-red-400">Channel list failed to load: {channelsErr}</p>
       )}
 
       <div className="flex flex-wrap items-center gap-4">
@@ -279,6 +330,11 @@ export default function Messages() {
               messages={messages}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
+              actions={{
+                onDelete: handleDeleteMessage,
+                onEdit: handleEditMessage,
+                busyId: modBusy,
+              }}
             />
           </div>
         </div>

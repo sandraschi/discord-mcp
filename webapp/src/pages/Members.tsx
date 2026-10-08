@@ -21,6 +21,30 @@ export default function Members() {
   const [limit, setLimit] = useState(100);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [timeoutSecs, setTimeoutSecs] = useState(3600);
+  const [acting, setActing] = useState<string | null>(null);
+
+  const timeoutLabel = (secs: number) =>
+    secs >= 604800 ? "7 days" : secs >= 86400 ? "24 hours" : secs >= 3600 ? "1 hour" : `${Math.round(secs / 60)} minutes`;
+
+  const handleTimeout = async (m: Member) => {
+    if (!selectedGuildId || !m.user_id) return;
+    const label = timeoutLabel(timeoutSecs);
+    if (!window.confirm(`Timeout ${m.username ?? m.user_id} for ${label}?`)) return;
+    setActing(m.user_id);
+    setErr(null);
+    setMsg(null);
+    try {
+      const until = new Date(Date.now() + timeoutSecs * 1000).toISOString();
+      await api.timeoutMember(selectedGuildId, m.user_id, until);
+      setMsg(`Timed out ${m.username ?? m.user_id} for ${label}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setActing(null);
+    }
+  };
 
   useEffect(() => {
     if (!selectedGuildId) {
@@ -84,6 +108,7 @@ export default function Members() {
           <p className="text-sm">{err}</p>
         </div>
       )}
+      {msg && <p className="text-emerald-300 text-sm">{msg}</p>}
 
       <div className="flex flex-wrap items-center gap-4">
         {showPicker && (
@@ -113,6 +138,18 @@ export default function Members() {
           <option value={250}>250</option>
           <option value={500}>500</option>
           <option value={1000}>1000</option>
+        </select>
+        <label className="text-slate-300 text-sm font-medium">Timeout</label>
+        <select
+          value={timeoutSecs}
+          onChange={(e) => setTimeoutSecs(Number(e.target.value))}
+          className="rounded-xl bg-[#0f0f12] border border-white/10 px-4 py-2 text-slate-200"
+          title="Timeout duration for the per-row Timeout action"
+        >
+          <option value={600}>10 minutes</option>
+          <option value={3600}>1 hour</option>
+          <option value={86400}>24 hours</option>
+          <option value={604800}>7 days</option>
         </select>
         {selectedGuildId && members.length > 0 && (
           <div className="flex gap-2">
@@ -147,6 +184,7 @@ export default function Members() {
                 <th className="p-4 text-sm font-bold text-slate-300">Nick</th>
                 <th className="p-4 text-sm font-bold text-slate-300">Joined</th>
                 <th className="p-4 text-sm font-bold text-slate-300">Roles</th>
+                <th className="p-4 text-sm font-bold text-slate-300">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -166,6 +204,16 @@ export default function Members() {
                   </td>
                   <td className="p-4 text-slate-400 text-sm">
                     {(m.roles ?? []).length}
+                  </td>
+                  <td className="p-4">
+                    <button
+                      type="button"
+                      onClick={() => handleTimeout(m)}
+                      disabled={acting === m.user_id}
+                      className="text-sm text-amber-300 hover:text-amber-200 disabled:opacity-40"
+                    >
+                      {acting === m.user_id ? "Timing out…" : "Timeout"}
+                    </button>
                   </td>
                 </tr>
               ))}

@@ -448,6 +448,22 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ content }),
     }),
+  editMessage: (channelId: string, messageId: string, content: string) =>
+    request<OkResponse>(`/api/v1/channels/${channelId}/messages/${messageId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ content }),
+    }),
+  deleteMessage: (channelId: string, messageId: string) =>
+    request<OkResponse>(`/api/v1/channels/${channelId}/messages/${messageId}`, {
+      method: "DELETE",
+    }),
+  revokeInvite: (inviteCode: string) =>
+    request<OkResponse>(`/api/v1/invites/${inviteCode}`, { method: "DELETE" }),
+  timeoutMember: (guildId: string, userId: string, untilIso: string, reason = "") =>
+    request<OkResponse>(`/api/v1/guilds/${guildId}/members/${userId}/timeout`, {
+      method: "PATCH",
+      body: JSON.stringify({ communication_disabled_until: untilIso, reason }),
+    }),
   ragIngest: (body: {
     channel_id: string;
     limit?: number;

@@ -74,7 +74,93 @@ function MessageContent({
   );
 }
 
-function ListItem({ m }: { m: Message }) {
+export interface MessageActions {
+  onDelete?: (m: Message) => void;
+  onEdit?: (m: Message, content: string) => Promise<void> | void;
+  busyId?: string | null;
+}
+
+function ItemActions({
+  m,
+  actions,
+  onEditStart,
+}: {
+  m: Message;
+  actions: MessageActions;
+  onEditStart: () => void;
+}) {
+  const busy = actions.busyId === m.id;
+  return (
+    <span className="inline-flex items-center gap-2 ml-auto">
+      {actions.onEdit && (
+        <button
+          type="button"
+          onClick={onEditStart}
+          disabled={busy}
+          className="text-xs text-slate-500 hover:text-indigo-300 disabled:opacity-40"
+        >
+          Edit
+        </button>
+      )}
+      {actions.onDelete && (
+        <button
+          type="button"
+          onClick={() => actions.onDelete?.(m)}
+          disabled={busy}
+          className="text-xs text-slate-500 hover:text-red-300 disabled:opacity-40"
+        >
+          Delete
+        </button>
+      )}
+    </span>
+  );
+}
+
+function EditBox({
+  initial,
+  onSave,
+  onCancel,
+  busy,
+}: {
+  initial: string;
+  onSave: (content: string) => void;
+  onCancel: () => void;
+  busy: boolean;
+}) {
+  const [draft, setDraft] = useState(initial);
+  return (
+    <div className="mt-1 space-y-2">
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={3}
+        className="w-full rounded-lg bg-black/40 border border-white/10 px-2 py-1.5 text-sm text-slate-200"
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => onSave(draft)}
+          disabled={busy || !draft.trim()}
+          className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs disabled:opacity-50"
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className="px-3 py-1 rounded-lg bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-xs disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ListItem({ m, actions }: { m: Message; actions?: MessageActions }) {
+  const [editing, setEditing] = useState(false);
+  const busy = actions?.busyId === m.id;
   return (
     <li className="p-4 hover:bg-white/5 border-b border-white/5 last:border-0">
       <div className="flex items-baseline gap-2 flex-wrap">
@@ -87,9 +173,28 @@ function ListItem({ m }: { m: Message }) {
         {m.edited_timestamp && (
           <span className="text-slate-600 text-xs">(edited)</span>
         )}
+        {actions && (actions.onDelete || actions.onEdit) && !editing && (
+          <ItemActions m={m} actions={actions} onEditStart={() => setEditing(true)} />
+        )}
       </div>
       <div className="mt-1">
-        <MessageContent m={m} />
+        {editing && actions?.onEdit ? (
+          <EditBox
+            initial={m.content}
+            busy={busy}
+            onCancel={() => setEditing(false)}
+            onSave={async (content) => {
+              try {
+                await actions.onEdit?.(m, content);
+                setEditing(false);
+              } catch {
+                // page error banner shows it; keep the box open
+              }
+            }}
+          />
+        ) : (
+          <MessageContent m={m} />
+        )}
       </div>
     </li>
   );
@@ -109,7 +214,9 @@ function CompactItem({ m }: { m: Message }) {
   );
 }
 
-function CardItem({ m }: { m: Message }) {
+function CardItem({ m, actions }: { m: Message; actions?: MessageActions }) {
+  const [editing, setEditing] = useState(false);
+  const busy = actions?.busyId === m.id;
   return (
     <li className="rounded-xl border border-white/10 bg-[#0f0f12]/80 p-4 hover:border-white/20 transition-colors">
       <div className="flex items-center gap-3">
@@ -127,9 +234,28 @@ function CardItem({ m }: { m: Message }) {
             {m.edited_timestamp && (
               <span className="text-slate-600 text-xs">(edited)</span>
             )}
+            {actions && (actions.onDelete || actions.onEdit) && !editing && (
+              <ItemActions m={m} actions={actions} onEditStart={() => setEditing(true)} />
+            )}
           </div>
           <div className="mt-2">
-            <MessageContent m={m} />
+            {editing && actions?.onEdit ? (
+              <EditBox
+                initial={m.content}
+                busy={busy}
+                onCancel={() => setEditing(false)}
+                onSave={async (content) => {
+                  try {
+                    await actions.onEdit?.(m, content);
+                    setEditing(false);
+                  } catch {
+                    // page error banner shows it; keep the box open
+                  }
+                }}
+              />
+            ) : (
+              <MessageContent m={m} />
+            )}
           </div>
         </div>
       </div>
@@ -286,10 +412,12 @@ export default function MessageViewer({
   messages,
   viewMode,
   onViewModeChange,
+  actions,
 }: {
   messages: Message[];
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  actions?: MessageActions;
 }) {
   const [pointSelectedId, setPointSelectedId] = useState<string | null>(null);
   const threadTrees = useMemo(() => buildThreadTree(messages), [messages]);
@@ -320,7 +448,7 @@ export default function MessageViewer({
       {viewMode === "list" && (
         <ul className="divide-y divide-white/5 rounded-2xl border border-white/10 bg-[#0f0f12]/80 overflow-hidden max-h-[65vh] overflow-y-auto">
           {messages.map((m) => (
-            <ListItem key={m.id} m={m} />
+            <ListItem key={m.id} m={m} actions={actions} />
           ))}
         </ul>
       )}
@@ -336,7 +464,7 @@ export default function MessageViewer({
       {viewMode === "card" && (
         <ul className="grid gap-3 max-h-[65vh] overflow-y-auto pr-1">
           {messages.map((m) => (
-            <CardItem key={m.id} m={m} />
+            <CardItem key={m.id} m={m} actions={actions} />
           ))}
         </ul>
       )}

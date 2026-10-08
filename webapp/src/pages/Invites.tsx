@@ -40,6 +40,18 @@ export default function Invites() {
     }).catch((e) => setChannelsErr(e instanceof Error ? e.message : String(e)));
   };
 
+  const handleRevoke = async (code: string) => {
+    if (!code) return;
+    if (!window.confirm(`Revoke invite ${code}?`)) return;
+    setErr(null);
+    try {
+      await api.revokeInvite(code);
+      setInvites((prev) => prev.filter((x) => x.code !== code));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   useEffect(() => {
     if (!selectedGuildId) {
       setInvites([]);
@@ -245,6 +257,7 @@ export default function Invites() {
                 <th className="p-4 text-sm font-bold text-slate-300">
                   Inviter
                 </th>
+                <th className="p-4 text-sm font-bold text-slate-300">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -273,6 +286,15 @@ export default function Invites() {
                     }
                   </td>
                   <td className="p-4 text-slate-400">{i.inviter ?? "—"}</td>
+                  <td className="p-4">
+                    <button
+                      type="button"
+                      onClick={() => i.code && handleRevoke(i.code)}
+                      className="text-sm text-red-300 hover:text-red-200"
+                    >
+                      Revoke
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
