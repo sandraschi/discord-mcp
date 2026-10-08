@@ -455,6 +455,11 @@ export const api = {
     ),
   getChannelThreads: (channelId: string) =>
     request<ThreadsResponse>(`/api/v1/channels/${channelId}/threads`),
+  sendWebhook: (webhookId: string, webhookToken: string, content: string) =>
+    request<OkResponse>(`/api/v1/webhooks/${webhookId}/${webhookToken}`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    }),
   getRecent: (guildId: string, limitChannels = 10, perChannel = 3, offset = 0) =>
     request<RecentResponse>(
       `/api/v1/guilds/${guildId}/recent?limit_channels=${limitChannels}&per_channel=${perChannel}&offset=${offset}`,

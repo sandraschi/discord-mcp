@@ -40,6 +40,7 @@ export default function EmbedBuilder() {
     showPicker,
   } = useGuildPicker();
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [channelsErr, setChannelsErr] = useState<string | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState("");
   const [embed, setEmbed] = useState<Embed>({
     title: "", description: "", color: "#5865F2",
@@ -53,7 +54,8 @@ export default function EmbedBuilder() {
 
   useEffect(() => {
     if (selectedGuildId) {
-      api.getChannels(selectedGuildId).then((r) => setChannels(r.channels?.filter((c) => c.type === 0) ?? [])).catch(() => {});
+      setChannelsErr(null);
+      api.getChannels(selectedGuildId).then((r) => setChannels(r.channels?.filter((c) => c.type === 0) ?? [])).catch((e) => setChannelsErr(e instanceof Error ? e.message : String(e)));
     }
   }, [selectedGuildId]);
 
@@ -107,6 +109,7 @@ export default function EmbedBuilder() {
                 {channels.map((c) => <option key={c.id} value={c.id}>#{c.name}</option>)}
               </select>
             </div>
+            {channelsErr && <p className="text-xs text-red-400">Channel list failed to load: {channelsErr}</p>}
 
             <Input label="Title" value={embed.title} onChange={(v) => setEmbed({ ...embed, title: v })} />
             <div>

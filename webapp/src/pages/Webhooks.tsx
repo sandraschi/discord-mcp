@@ -67,6 +67,21 @@ export default function WebhooksPage() {
     }
   };
 
+  const handleTestFire = async (w: WebhookEntry) => {
+    setErr(null);
+    setMsg(null);
+    if (!w.token) {
+      setErr(`No token available for webhook ${w.name ?? w.id} — test-fire needs the token from the webhook list.`);
+      return;
+    }
+    try {
+      await api.sendWebhook(w.id, w.token, "Test ping from the discord-mcp webapp");
+      setMsg(`Test sent via ${w.name ?? w.id}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   return (
     <div className="space-y-6 py-4 max-w-5xl">
       <div className="flex items-center gap-4">
@@ -145,7 +160,14 @@ export default function WebhooksPage() {
               {webhooks.map((w) => (
                 <tr key={w.id} className="border-b border-white/5">
                   <td className="p-4 text-slate-200">{w.name ?? "—"}</td>
-                  <td className="p-4">
+                  <td className="p-4 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleTestFire(w)}
+                      className="text-sm text-cyan-300 hover:text-cyan-200"
+                    >
+                      Test
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(w.id)}
