@@ -87,3 +87,13 @@ still 322MB until next NSIS rebuild. 2 commits pushed.
 - WARNING: `just e2e` wrapper fights NSSM (binds :10756, kills :10756
   and :10757). Service survived via respawn; vite relaunched manually.
   Use direct `npx playwright test` until the wrapper learns NSSM.
+
+## 2026-10-08 (night): audit wrapper fixed (mcd scripts/playwright-audit.ps1)
+- Phase 1/2/cleanup are service-aware now (ancestor-chain detection +
+  service-name match): service-held backend ports are reused, never
+  kill-ported; only self-started jobs are stopped.
+- Phase 6: 404/405 → SKIP instead of FAIL (5.1-compatible, no
+  SkipHttpErrorCheck); null-job cleanup crash fixed; `$pid` reserved-var
+  bug fixed.
+- `just e2e` proof: 47 passed, console 0, summary Failed 0, backend PID
+  unchanged (236584) throughout. .gitignore now covers audit debris.

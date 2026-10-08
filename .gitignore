@@ -82,7 +82,12 @@ native/target/
 
 # Backup
 *.bak
+*.bak.*
 *.backup
+# Test debris (regenerable)
+audit_report_*.txt
+webapp/test-results/
+webapp/playwright-report/
 # Rust / Zed IDE — rust-analyzer may create target/ at repo root
 target/
 
