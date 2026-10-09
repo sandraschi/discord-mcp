@@ -1,5 +1,20 @@
 
 ## [Unreleased]
+### Fixed (2026-10-09, assfix)
+- **Orderly shutdown:** new `POST /api/shutdown` (200 + 500 ms delayed exit) so
+  the NSSM/fleet launcher restarts without hard-killing mid-write flows.
+  Regression test `tests/test_shutdown.py` (95 tests pass).
+- **MCPB manifests:** `${PWD}` → `${__dirname}`, stdio entry
+  (`python -m discord_mcp --mode stdio`), tool list/version synced; pack-script
+  template fixed. Audit: no NONSPEC/SIDECAR (remaining WARNs: vendored shim,
+  README one-liner, NSIS hook — deferred).
+- **Lint gates:** ruff `S110`/`S112` un-ignored (4 silent swallows in `depot.py`
+  now log), `T20` enforced, `ruff format` clean, `biome.json` schema drift fixed.
+  Webapp `biome:ci` still reports ~7000 pre-existing findings — dedicated cleanup
+  pass required; pre-commit biome hook installed warn-only until then.
+- **Session context + hygiene:** Claude `SessionStart` hooks, `.windsurfrules`
+  mirror, `.pre-commit-config.yaml`, `renovate.json`, `.gitignore` (`reports/`,
+  `*.mcpb`, `native/gen/`), new `docs/ONBOARDING.md`.
 ### Changed (2026-10-08)
 - **RAG embeddings via Ollama (torch stack dropped).** Default provider is
   now `ollama/nomic-embed-text` (768d, model pulls lazily on first use);
