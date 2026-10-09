@@ -62,8 +62,8 @@ def export_messages_to_depot(
                         obj = json.loads(line_str)
                         if "id" in obj:
                             existing_ids.add(str(obj["id"]))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Skipping unparsable depot line in %s: %s", depot_file, e)
         except Exception as e:
             logger.warning("Failed reading existing depot file %s: %s", depot_file, e)
 
@@ -120,8 +120,8 @@ def load_messages_from_depot(
                     continue
                 try:
                     messages.append(json.loads(line_str))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Skipping unparsable depot line for %s: %s", channel_id, e)
         if limit and len(messages) > limit:
             messages = messages[-limit:]
         return messages
@@ -161,10 +161,10 @@ def list_depot_inventory() -> list[dict[str, Any]]:
                                 guild_name = first.get("guild_name", "")
                                 channel_name = first.get("channel_name", "")
                                 sample_time = first.get("timestamp", "")
-                            except Exception:
-                                pass
-            except Exception:
-                pass
+                            except Exception as e:
+                                logger.debug("Unparsable first line in %s: %s", channel_file, e)
+            except Exception as e:
+                logger.warning("Failed inventory scan of %s: %s", channel_file, e)
 
             file_size_kb = round(channel_file.stat().st_size / 1024, 1)
             inventory.append(

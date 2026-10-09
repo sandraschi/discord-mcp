@@ -101,3 +101,13 @@ _dashboard/
 # on every pack. Never hand-edit, never commit.
 mcpb/src/
 
+# Assess snapshots (regenerable) -- committed copy lives in docs/assess-reports/
+reports/
+!docs/assess-reports/
+
+# MCPB bundles (built artifacts, never commit)
+*.mcpb
+
+# Tauri codegen (regenerable)
+native/gen/
+
