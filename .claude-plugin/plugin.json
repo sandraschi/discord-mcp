@@ -1,0 +1,5 @@
+{
+  "name": "discord-mcp",
+  "description": "Discord bot bridge session context",
+  "hooks": "../hooks/hooks.json"
+}
