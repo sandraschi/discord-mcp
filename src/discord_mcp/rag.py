@@ -73,15 +73,13 @@ class _OllamaEmbeddings:
             )
         except Exception as e:
             raise RuntimeError(
-                f"Ollama not reachable at {self.base_url} ({e}). Start Ollama "
-                f"or set RAG_EMBEDDINGS=local."
+                f"Ollama not reachable at {self.base_url} ({e}). Start Ollama or set RAG_EMBEDDINGS=local."
             ) from e
         if r.status_code == 404:
             return self._embed_legacy(batch)  # older Ollama without /api/embed
         if r.status_code != 200:
             raise RuntimeError(
-                f"Ollama embed failed (HTTP {r.status_code}): {r.text[:300]}. "
-                f"Hint: `ollama pull {self.model}`."
+                f"Ollama embed failed (HTTP {r.status_code}): {r.text[:300]}. Hint: `ollama pull {self.model}`."
             )
         embs = r.json().get("embeddings") or []
         if len(embs) != len(batch):
@@ -171,7 +169,7 @@ def _get_embedding_model():
     device = "cuda" if use_gpu else "cpu"
     try:
         _model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
-        _gpu_active = (device == "cuda")
+        _gpu_active = device == "cuda"
     except Exception:
         _model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
         _gpu_active = False

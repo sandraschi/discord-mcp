@@ -13,6 +13,7 @@ from typing import Annotated, Any
 
 _STARTED = datetime.now(UTC)
 _SHUTTING_DOWN = False
+_exit_task: asyncio.Task | None = None
 
 
 def _resolve_git_sha() -> str:
@@ -749,6 +750,25 @@ async def health():
         "comms_watcher": message_watcher_status(),
         "timestamp": datetime.now().isoformat(),
     }
+
+
+@app.post("/api/shutdown")
+async def api_shutdown():
+    """Orderly exit for NSSM/fleet launcher: respond 200, then exit after 500 ms.
+
+    Lets long-running flows (watchers, depot writes, RAG sweeps) checkpoint
+    before the process is bounced. Without this the launcher hard-restarts.
+    """
+    global _SHUTTING_DOWN, _exit_task
+    _SHUTTING_DOWN = True
+    logger.info("Orderly shutdown requested via POST /api/shutdown")
+
+    async def _delayed_exit() -> None:
+        await asyncio.sleep(0.5)
+        os._exit(0)
+
+    _exit_task = asyncio.create_task(_delayed_exit())
+    return {"status": "shutting_down"}
 
 
 async def _prompt_descriptions() -> dict[str, str]:
@@ -1614,7 +1634,9 @@ async def _run_discord_rag_sweep_job(
         _rag_jobs[job_id]["phase"] = "completed"
         _rag_jobs[job_id]["chunks"] = total_ingested
         _rag_jobs[job_id]["skipped"] = total_skipped
-        _rag_jobs[job_id]["message"] = f"Swept {len(target_channels)} channel(s): {total_ingested} indexed, {total_skipped} skipped."
+        _rag_jobs[job_id]["message"] = (
+            f"Swept {len(target_channels)} channel(s): {total_ingested} indexed, {total_skipped} skipped."
+        )
     except Exception as exc:
         logger.exception("Discord RAG sweep job failed")
         _rag_jobs[job_id]["status"] = "error"

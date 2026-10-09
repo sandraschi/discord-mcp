@@ -307,7 +307,9 @@ async def discord_tool(
     mentionable: Annotated[bool, Field(description="Allow anyone to @mention this role.")] = False,
     overwrite_id: Annotated[
         str | None,
-        Field(description="Role or member snowflake ID the permission overwrite applies to (set/delete_channel_permission)."),
+        Field(
+            description="Role or member snowflake ID the permission overwrite applies to (set/delete_channel_permission)."
+        ),
     ] = None,
     overwrite_type: Annotated[
         int, Field(description="Overwrite target type for set_channel_permission: 0=role, 1=member.", ge=0, le=1)
