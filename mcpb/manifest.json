@@ -1,22 +1,24 @@
 {
   "manifest_version": "0.2",
   "name": "discord-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "FastMCP 3.2 Discord MCP server with sampling, agentic workflow, and SOTA webapp",
   "author": { "name": "sandraschi" },
   "server": {
     "type": "python",
     "entry_point": "run_server.py",
     "mcp_config": {
-      "command": "uv",
-      "args": ["run","--directory","${PWD}","run_server.py"],
+      "command": "python",
+      "args": ["-m", "discord_mcp", "--mode", "stdio"],
       "env": {
-        "PYTHONPATH": "${PWD}/src",
+        "PYTHONPATH": "${__dirname}/src",
         "PYTHONUNBUFFERED": "1"
       }
     }
   },
   "tools": [
-    { "name": "discord_tool", "description": "discord_tool" }
+    { "name": "discord", "description": "Unified Discord portmanteau - messaging, moderation, roles, webhooks, audit log, RAG" },
+    { "name": "discord_agentic_workflow", "description": "Multi-step agentic task using MCP sampling (SEP-1577)" },
+    { "name": "discord_help", "description": "Context-aware documentation for any Discord operation" }
   ]
 }

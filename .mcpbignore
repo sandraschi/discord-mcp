@@ -21,5 +21,11 @@ build/
 
 # Non-MCP components (webapp, native, scripts)
 native/
+webapp/
 web_sota/
 scripts/
+
+# Runtime data + editor backups (never ship)
+data/
+*.bak
+*.bak.*

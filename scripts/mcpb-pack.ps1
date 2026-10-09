@@ -12,9 +12,8 @@ if (-not (Test-Path manifest.json)) {
         elseif (Test-Path "src/$pkg/server.py") { "src/$pkg/server.py" } `
         else { "src/$pkg/main.py" }
     $author = if ($proj -match '(?m)authors = \[{ name = "(.*)"') { $matches[1] } else { "sandraschi" }
-    $args = if ($entry -eq "run_server.py") { '["run","--directory","${PWD}","run_server.py"]' } `
-        else { '["run","--directory","${PWD}","python","-m","' + $pkg + '"]' }
-    $json = '{"manifest_version":"0.2","name":"' + $name + '","version":"' + $ver + '","description":"' + $desc + '","author":{"name":"' + $author + '"},"server":{"type":"python","entry_point":"' + $entry + '","mcp_config":{"command":"uv","args":' + $args + ',"env":{"PYTHONPATH":"${PWD}/src","PYTHONUNBUFFERED":"1"}}}}'
+    $args = '["-m","' + $pkg + '","--mode","stdio"]'
+    $json = '{"manifest_version":"0.2","name":"' + $name + '","version":"' + $ver + '","description":"' + $desc + '","author":{"name":"' + $author + '"},"server":{"type":"python","entry_point":"' + $entry + '","mcp_config":{"command":"python","args":' + $args + ',"env":{"PYTHONPATH":"${__dirname}/src","PYTHONUNBUFFERED":"1"}}}}'
     $json | Set-Content manifest.json -Encoding utf8
     Write-Host "  Generated manifest.json" -ForegroundColor Yellow
 }

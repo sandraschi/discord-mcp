@@ -11,9 +11,9 @@
     "entry_point": "src/discord_mcp/server.py",
     "mcp_config": {
       "command": "python",
-      "args": ["-m", "discord_mcp.server"],
+      "args": ["-m", "discord_mcp", "--mode", "stdio"],
       "env": {
-        "PYTHONPATH": "${PWD}/src",
+        "PYTHONPATH": "${__dirname}/src",
         "PYTHONUNBUFFERED": "1"
       }
     }
