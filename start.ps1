@@ -1,9 +1,5 @@
-# *********************************************************************************
-# * discord-mcp launcher: full-stack restart orchestrator                         *
-# * Double-click start.bat, approve ONE UAC prompt, done. Everything else below   *
-# * is automatic: backend (NSSM service when present) -> frontend (vite) ->       *
-# * health verify. Never taskkill the service child; NSSM owns that process.     *
-# *********************************************************************************
+# Fleet unified launcher - do not edit logic here.
+# Change fleet-start.config.ps1 at the repo root instead.
 param(
     [switch]$Headless,
     [switch]$BackendOnly,
@@ -13,141 +9,91 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$ServiceName  = 'discord-mcp'
-$BackendPort  = 10756
-$FrontendPort = 10757
-$BackendHealth = "http://127.0.0.1:$BackendPort/api/v1/health"
+$ReposRoot = if ($env:FLEET_REPOS_ROOT) { $env:FLEET_REPOS_ROOT } else { 'D:\Dev\repos' }
+$EnginePath = Join-Path $ReposRoot 'mcp-central-docs\scripts\Invoke-FleetWebappStart.ps1'
 
-function Test-IsAdmin {
-    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
-    return ([Security.Principal.WindowsPrincipal]$id).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-
-function Get-PortPid {
-    param([int]$Port)
-    $conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-    if ($conn) { return $conn.OwningProcess }
-    return $null
-}
-
-function Wait-PortListen {
-    param([int]$Port, [int]$Seconds = 60, [int]$NotPid = 0)
-    $deadline = (Get-Date).AddSeconds($Seconds)
-    while ((Get-Date) -lt $deadline) {
-        $pid = Get-PortPid -Port $Port
-        if ($pid -and $pid -ne $NotPid) { return $pid }
-        Start-Sleep -Seconds 2
+$configCandidates = @(
+    (Join-Path $PSScriptRoot 'fleet-start.config.ps1'),
+    (Join-Path (Split-Path -Parent $PSScriptRoot) 'fleet-start.config.ps1')
+)
+$configPath = $null
+foreach ($candidate in $configCandidates) {
+    if (Test-Path -LiteralPath $candidate) {
+        $configPath = $candidate
+        break
     }
-    return $null
 }
-
-function Wait-HttpOk {
-    param([string]$Url, [int]$Seconds = 60)
-    $deadline = (Get-Date).AddSeconds($Seconds)
-    while ((Get-Date) -lt $deadline) {
-        try {
-            $r = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 5
-            if ($r.StatusCode -eq 200) { return $true }
-        } catch { Start-Sleep -Seconds 2 }
-    }
-    return $false
-}
-
-function Fail([string]$msg) {
-    Write-Host "ERROR: $msg" -ForegroundColor Red
+if (-not $configPath) {
+    Write-Host 'ERROR: Missing fleet-start.config.ps1 (repo root or beside start.ps1).' -ForegroundColor Red
     exit 1
 }
 
-$service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-
-# 0. One UAC prompt when service control is needed. Relaunch self elevated.
-if ($service -and -not $FrontendOnly -and -not (Test-IsAdmin)) {
-    Write-Host 'Service restart needs admin - relaunching elevated (one UAC click)...' -ForegroundColor Yellow
-    $flags = @()
-    foreach ($name in @('Headless', 'BackendOnly', 'FrontendOnly', 'NoBrowser', 'ReuseIfRunning')) {
-        if ((Get-Variable -Name $name -ValueOnly)) { $flags += "-$name" }
-    }
-    $argList = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" $($flags -join ' ')"
-    Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $argList
+# Mode 1: Central Fleet Engine (when mcp-central-docs is available)
+if (Test-Path -LiteralPath $EnginePath) {
+    . $EnginePath
+    Start-FleetWebapp @PSBoundParameters -ConfigPath $configPath -LauncherRoot $PSScriptRoot
     exit 0
 }
 
-# Fast path: everything already healthy.
-if ($ReuseIfRunning) {
-    $backOk = $true
-    if (-not $FrontendOnly) { $backOk = Wait-HttpOk -Url $BackendHealth -Seconds 5 }
-    $frontPid = Get-PortPid -Port $FrontendPort
-    if ($backOk -and ($BackendOnly -or $frontPid)) {
-        Write-Host 'Already running and healthy - reusing.' -ForegroundColor Green
-        exit 0
-    }
-    Write-Host 'Reuse requested but stack unhealthy - full restart...' -ForegroundColor Yellow
-}
+# Mode 2: Standalone Fallback (Naked install on new machine / public user clone)
+Write-Host "Central fleet engine not found ($EnginePath) - starting in standalone mode." -ForegroundColor Yellow
 
-# 1. Backend via the service manager. NEVER Stop-Process the service child.
-if (-not $FrontendOnly) {
-    if ($service) {
-        $oldPid = Get-PortPid -Port $BackendPort
-        Write-Host "Restarting service $ServiceName (old backend PID: $oldPid)..." -ForegroundColor Cyan
-        try {
-            $svc = Get-Service -Name $ServiceName
-            $svc.Stop()
-            $svc.WaitForStatus('Stopped', '00:00:30')
-            $svc.Start()
-            $svc.WaitForStatus('Running', '00:00:30')
-        } catch { Fail "service restart failed: $($_.Exception.Message)" }
-        $newPid = Wait-PortListen -Port $BackendPort -Seconds 60 -NotPid ([int]($oldPid -as [string] -replace '\D'))
-        if (-not $newPid) { Fail "backend did not re-bind :$BackendPort with a fresh PID" }
-        if ($oldPid -and $newPid -eq $oldPid) { Fail "backend PID unchanged ($newPid) - restart did not take" }
-        Write-Host "Backend fresh on :$BackendPort (PID $oldPid -> $newPid)." -ForegroundColor Green
-        if (-not (Wait-HttpOk -Url $BackendHealth -Seconds 60)) { Fail "backend unhealthy at $BackendHealth" }
-        Write-Host 'Backend health OK.' -ForegroundColor Green
-    }
-}
+$cfg = . $configPath
+$repoRoot = Split-Path -Parent $PSScriptRoot
+if (Test-Path (Join-Path $PSScriptRoot 'pyproject.toml')) { $repoRoot = $PSScriptRoot }
 
-# 2. Frontend (vite is ours, not the service - safe to recycle) via fleet engine.
-$ReposRoot = if ($env:FLEET_REPOS_ROOT) { $env:FLEET_REPOS_ROOT } else { 'D:\Dev\repos' }
-$EnginePath = Join-Path $ReposRoot 'mcp-central-docs\scripts\Invoke-FleetWebappStart.ps1'
-if (-not (Test-Path -LiteralPath $EnginePath)) { Fail "Missing fleet start engine: $EnginePath" }
-. $EnginePath
+$backendPort = if ($cfg.BackendPort) { [int]$cfg.BackendPort } else { 10756 }
+$frontendPort = if ($cfg.FrontendPort) { [int]$cfg.FrontendPort } else { 10757 }
 
-$configPath = Join-Path $PSScriptRoot 'fleet-start.config.ps1'
-if (-not (Test-Path -LiteralPath $configPath)) { Fail 'Missing fleet-start.config.ps1 at repo root.' }
+$webRel = if ($cfg.WebRoot) { $cfg.WebRoot } else { 'webapp' }
+$webRoot = if ([System.IO.Path]::IsPathRooted($webRel)) { $webRel } else { Join-Path $repoRoot $webRel }
+if (-not (Test-Path -LiteralPath $webRoot)) { $webRoot = $PSScriptRoot }
 
-if (-not $BackendOnly) {
-    $existing = Get-PortPid -Port $FrontendPort
-    if ($existing) {
-        $proc = Get-Process -Id $existing -ErrorAction SilentlyContinue
-        if ($proc -and $proc.ProcessName -eq 'node') {
-            Write-Host "Recycling stale frontend (PID $existing)..." -ForegroundColor Yellow
-            Stop-Process -Id $existing -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 1
+# 1. Start Backend
+if (-not $FrontendOnly -and $backendPort -gt 0 -and $cfg.Backend.Kind -ne 'none') {
+    Write-Host "Starting backend on :$backendPort ..." -ForegroundColor Cyan
+    $bWorkDir = if ($cfg.Backend.WorkDir) {
+        if ([System.IO.Path]::IsPathRooted($cfg.Backend.WorkDir)) { $cfg.Backend.WorkDir } else { Join-Path $repoRoot $cfg.Backend.WorkDir }
+    } else { $repoRoot }
+
+    $pyPath = if ($cfg.Backend.PythonPath) {
+        $parts = $cfg.Backend.PythonPath -split ';' | ForEach-Object {
+            if ([System.IO.Path]::IsPathRooted($_)) { $_ } else { Join-Path $repoRoot $_ }
         }
-    }
-    if ($service) {
-        Start-FleetWebapp -FrontendOnly -ConfigPath $configPath -LauncherRoot $PSScriptRoot
+        $parts -join ';'
+    } else { "$repoRoot;$repoRoot\src" }
+
+    $backendExec = if ($cfg.Backend.Kind -eq 'module-serve') {
+        $mod = if ($cfg.Backend.Module) { $cfg.Backend.Module } else { $cfg.Name }
+        $args = if ($cfg.Backend.ServeArgs) { $cfg.Backend.ServeArgs } else { '--serve' }
+        "python -m $mod $args"
+    } elseif ($cfg.Backend.Kind -eq 'cli-serve') {
+        $mod = if ($cfg.Backend.Module) { $cfg.Backend.Module } else { $cfg.Name }
+        "$mod --serve --port $backendPort"
     } else {
-        Start-FleetWebapp @PSBoundParameters -ConfigPath $configPath -LauncherRoot $PSScriptRoot
+        $target = if ($cfg.Backend.UvicornTarget) { $cfg.Backend.UvicornTarget } else { 'discord_mcp.server:app' }
+        "uvicorn $target --host 127.0.0.1 --port $backendPort"
     }
-    $frontPid = Wait-PortListen -Port $FrontendPort -Seconds 90
-    if (-not $frontPid) { Fail "frontend did not bind :$FrontendPort" }
-    Write-Host "Frontend live on :$FrontendPort (PID $frontPid)." -ForegroundColor Green
+
+    $bCmd = "`$env:PYTHONPATH = '$pyPath'; `$env:WEB_PORT = '$backendPort'; Set-Location '$bWorkDir'; uv run --project '$repoRoot' $backendExec"
+    Start-Process powershell.exe -ArgumentList @('-NoProfile', '-NoExit', '-Command', $bCmd) -WorkingDirectory $bWorkDir
 }
 
-# 3. Legacy port safety: only when NO service owns the backend (other machines).
-#    With a service present the block above already guarantees fresh PIDs;
-#    blind Stop-Process here would murder the service child NSSM just spawned.
-if (-not $service) {
-    foreach ($portNum in @($BackendPort, $FrontendPort)) {
-        Get-NetTCPConnection -LocalPort $portNum -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
-            if ($_.OwningProcess -ne $PID) {
-                Write-Host "Clearing stale listener on port $portNum (PID $($_.OwningProcess))..." -ForegroundColor Yellow
-                Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
-            }
-        }
+# 2. Start Frontend
+if (-not $BackendOnly -and $frontendPort -gt 0 -and (Test-Path -LiteralPath $webRoot)) {
+    Write-Host "Starting frontend on :$frontendPort ..." -ForegroundColor Cyan
+    if ($cfg.Frontend.PortEnvVar) { Set-Item -Path "Env:$($cfg.Frontend.PortEnvVar)" -Value "$frontendPort" }
+    if ($cfg.Frontend.ApiTargetEnv) { Set-Item -Path "Env:$($cfg.Frontend.ApiTargetEnv)" -Value "http://127.0.0.1:$backendPort" }
+
+    $cmdFlag = if ($Headless) { '/c' } else { '/k' }
+    if ($cfg.Frontend.Kind -eq 'next') {
+        Start-Process cmd.exe -ArgumentList @($cmdFlag, "npm run dev -- -p $frontendPort -H 127.0.0.1") -WorkingDirectory $webRoot
+    } else {
+        Start-Process cmd.exe -ArgumentList @($cmdFlag, "npm run dev -- --port $frontendPort --host 127.0.0.1") -WorkingDirectory $webRoot
     }
-    Start-Sleep -Seconds 1
 }
 
-Write-Host 'discord-mcp stack up.' -ForegroundColor Green
+# 3. Open Browser
+if (-not $NoBrowser -and -not $Headless -and -not $BackendOnly -and $frontendPort -gt 0) {
+    Start-Process "http://127.0.0.1:$frontendPort/"
+}
